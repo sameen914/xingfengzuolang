@@ -1,13 +1,11 @@
 import * as Phaser from 'phaser';
 import StartScene from './scenes/StartScene.js';
 import GameScene from './scenes/GameScene.js';
-
 const isNativeAndroid = (() => {
   try {
     const platform = globalThis?.Capacitor?.getPlatform?.();
     if (platform === 'android') return true;
   } catch (_) {}
-  // Capacitor Android WebView fallback detection. Avoid matching ordinary Android Chrome.
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   return /Android/i.test(ua) && /;\s*wv\)/i.test(ua);
 })();
@@ -33,9 +31,6 @@ function getUsableViewportRect() {
     document?.documentElement?.clientHeight
   ].filter((value) => Number.isFinite(value) && value > 0);
 
-  // Some in-app browsers report 100vh / 100dvh as the whole device screen even
-  // while their own top/bottom chrome is visible. Use the smallest live viewport
-  // measurement so the game never extends underneath browser UI.
   const width = Math.max(1, Math.floor(widthCandidates.length ? Math.min(...widthCandidates) : 960));
   const height = Math.max(1, Math.floor(heightCandidates.length ? Math.min(...heightCandidates) : 540));
   const x = Math.max(0, Math.floor(Number(vv?.offsetLeft) || 0));
@@ -47,21 +42,26 @@ function getUsableViewportRect() {
 function syncGameContainerToViewport() {
   if (typeof document === 'undefined') return;
   const container = document.getElementById('game-container');
+  const loading = document.getElementById('boot-loading');
   if (!container) return;
 
   const view = getUsableViewportRect();
-  container.style.left = `${view.x}px`;
-  container.style.top = `${view.y}px`;
-  container.style.right = 'auto';
-  container.style.bottom = 'auto';
-  container.style.width = `${view.width}px`;
-  container.style.height = `${view.height}px`;
+  for (const el of [container, loading]) {
+    if (!el) continue;
+    el.style.left = `${view.x}px`;
+    el.style.top = `${view.y}px`;
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.width = `${view.width}px`;
+    el.style.height = `${view.height}px`;
+  }
 
-  document.documentElement.style.setProperty('--game-vv-width', `${view.width}px`);
-  document.documentElement.style.setProperty('--game-vv-height', `${view.height}px`);
+  document.documentElement.style.setProperty('--viewport-x', `${view.x}px`);
+  document.documentElement.style.setProperty('--viewport-y', `${view.y}px`);
+  document.documentElement.style.setProperty('--viewport-width', `${view.width}px`);
+  document.documentElement.style.setProperty('--viewport-height', `${view.height}px`);
 }
 
-// Size the parent before Phaser measures it for the first time.
 syncGameContainerToViewport();
 
 const config = {
@@ -70,9 +70,7 @@ const config = {
   backgroundColor: '#20242c',
   physics: {
     default: 'arcade',
-    arcade: {
-      debug: false
-    }
+    arcade: { debug: false }
   },
   scale: {
     mode: Phaser.Scale.FIT,
@@ -86,8 +84,6 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Refresh against the *actual visible viewport*, not the full device screen.
-// This matters for mobile/in-app browsers whose own title/navigation bars stay visible.
 function refreshViewportLayout() {
   if (isNativeAndroid) {
     try {
@@ -118,6 +114,6 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshViewportLayout();
   });
-  try { screen.orientation?.addEventListener?.('change', refreshViewportLayout); } catch (_) {}
+
   refreshViewportLayout();
 }
