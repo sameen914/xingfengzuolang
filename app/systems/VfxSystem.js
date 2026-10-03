@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { PLAYER_VFX_REFERENCE } from '../config/vfxConfig.js';
 import { VFX_ASSETS, VFX_DEFAULTS } from '../config/vfxConfig.js';
 

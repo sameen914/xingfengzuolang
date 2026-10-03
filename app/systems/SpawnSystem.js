@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import Potato from '../enemies/Potato.js';
 import Duck from '../enemies/Duck.js';
 import Ball from '../enemies/Ball.js';

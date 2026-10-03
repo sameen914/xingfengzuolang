@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { PLAYER } from '../config/gameConfig.js';
 
 // dev14.21.0：主角动作反馈层。

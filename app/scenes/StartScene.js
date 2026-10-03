@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { GAME, RELEASE, DIFFICULTY_PROFILES } from '../config/gameConfig.js';
 
 export default class StartScene extends Phaser.Scene {

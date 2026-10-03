@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import Player from '../player/Player.js';
 import SpawnSystem from '../systems/SpawnSystem.js';
 import AdaptiveMusicSystem from '../systems/AdaptiveMusicSystem.js';

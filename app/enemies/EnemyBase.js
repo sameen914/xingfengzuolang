@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import StatusSystem from '../systems/StatusSystem.js';
 import { STATUS_EFFECTS } from '../config/gameConfig.js';
 

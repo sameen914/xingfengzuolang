@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import EnemyBase from './EnemyBase.js';
 import { ENEMIES } from '../config/gameConfig.js';
 
