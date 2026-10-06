@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES } from '../config/gameConfig.js?v=2.0.0';
 
 export default class Duck extends EnemyBase {
   constructor(scene, x, y) {
@@ -80,7 +80,6 @@ export default class Duck extends EnemyBase {
         return;
       }
 
-      // 「回避」：优先远离附近疯狂土豆，其次远离「土豆指挥官」。
       this.setScale(this.baseArtScale);
       this.clearTint();
 
@@ -139,7 +138,6 @@ export default class Duck extends EnemyBase {
       }
     } else if (queenPhase === 'frenzy') {
       reactionState = queenAttached ? 'frenzy_attach' : 'frenzy';
-      // 三阶段小鸭身体只轻微染红，不使用此前过重的整身深红。
       overrideTint = queenEventActive ? 0xff706a : 0xff918a;
       extraMoveMultiplier = queenAttached ? 1.25 : 1.12;
       extraAttackMultiplier = queenAttached ? 1.18 : 1.08;
@@ -159,14 +157,11 @@ export default class Duck extends EnemyBase {
       this.setTint(overrideTint);
     }
 
-    // 原来的图片版 angryMark 会造成长期常驻；现在改为只在关键事件窗口显示指定 Emoji。
     if (this.angryIcon?.active) this.angryIcon.setVisible(false);
 
     if (this.queenEventIcon?.active) {
       let emoji = '';
 
-      // dev14.21.7.1：丹麦鸭一旦撒糖，所有阶段的小鸭都统一显示一阶段的生气符号。
-      // Candy 反应优先于阶段情绪，不再在二/三阶段替换成 😡 / 🤬。
       if (candyEvent) {
         emoji = '💢';
       } else if (queenPhase === 'frenzy' && tietieEvent) {
@@ -201,7 +196,6 @@ export default class Duck extends EnemyBase {
       const effectiveSpeed = this.moveSpeed * extraMoveMultiplier;
 
       if (queenPhase === 'obsessed' || queenPhase === 'frenzy') {
-        // 二、三阶段的小鸭直接奔向主角。
         this.setVelocity(
           direction.x * effectiveSpeed,
           direction.y * effectiveSpeed
@@ -213,7 +207,6 @@ export default class Duck extends EnemyBase {
         this.setVelocity(x * effectiveSpeed, y * effectiveSpeed);
       }
 
-      // 小鸭不画逐帧腿：左右扭动 + 轻微弹性，形成小碎步感。
       const swaySpeed = queenPhase === 'frenzy' ? 0.020 : 0.014;
       const sway = Math.sin(time * swaySpeed + this.wobbleOffset);
       this.setAngle(sway * (queenPhase === 'frenzy' ? 7 : 5));

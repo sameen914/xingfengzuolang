@@ -10,7 +10,6 @@ export default class StatusSystem {
     const durationMs = options.durationMs ?? 10000;
 
     if (existing) {
-      // 高频 Buff 刷新只延长生命周期，避免重复触发显示/派生逻辑。
       existing.expiresAt = Math.max(existing.expiresAt, now + durationMs);
       const requestedLevel = options.level ?? existing.level ?? 1;
       if (requestedLevel > existing.level) existing.level = requestedLevel;

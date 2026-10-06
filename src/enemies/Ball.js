@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES, GAME, SPAWN } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES, GAME, SPAWN } from '../config/gameConfig.js?v=2.0.0';
 
 export default class Ball extends EnemyBase {
   constructor(scene, x, y) {
@@ -14,9 +14,6 @@ export default class Ball extends EnemyBase {
     this.setBounce(1, 1);
     this.body.onWorldBounds = true;
 
-    // 足球入场时默认朝主角当前位置砸过去。
-    // 入场角度由随机出生边 / 出生偏移决定；足球不是持续追踪弹，
-    // 撞墙后继续按原有物理反弹逻辑运动。
     const player = scene.player;
     const direction = new Phaser.Math.Vector2(
       (player?.x ?? x + 1) - x,
@@ -45,8 +42,6 @@ export default class Ball extends EnemyBase {
       return;
     }
 
-    // 足球 1:30 提前入场，但 2:30 前保持原始基础速度。
-    // 速度曲线继续从原来的 2:30 起算，10:00 前线性提升到 1.35。
     const rampStartSeconds = SPAWN.BALL_SPEED_RAMP_START_SECONDS;
     const elapsedSeconds = Math.max(
       rampStartSeconds,

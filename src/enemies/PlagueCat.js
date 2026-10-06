@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES } from '../config/gameConfig.js?v=2.0.0';
 
 const QUEEN_NOTICE_DISTANCE = 430;
 const QUEEN_HEART_EYES_DISTANCE = 250;
@@ -13,7 +13,6 @@ const SNEAK_GAS_RANGE = 285;
 const ELITE_VISUAL_SCALE = 1.18;
 const ELITE_COLLISION_SCALE = 1.10;
 
-// 五张正式状态图统一显示尺寸，避免状态切换或受击时出现“突然变大”。
 const VISUALS = {
   normal: { key: 'plagueCatNormalArt', width: 118, height: 118 },
   spray: { key: 'plagueCatSprayArt', width: 118, height: 118 },
@@ -30,7 +29,6 @@ export default class PlagueCat extends EnemyBase {
     this.setTarget(scene.player);
     this.setDepth(8);
     this.setOrigin(0.5, 1);
-    // 正式高分辨率 PNG 不使用 EnemyBase 的 squash/scale 受击动画，否则会瞬间巨大化。
     this.disableHitScale = true;
 
     this.nextInfectAt = scene.time.now + 1900;
@@ -60,7 +58,6 @@ export default class PlagueCat extends EnemyBase {
       return;
     }
 
-    // 看见女王鸭时花痴状态拥有最高优先级：持续朝向女王，不抢经验、不放技能。
     const simpState = this.getQueenSimpVisualState();
     if (simpState) {
       this.setVelocity(0, 0);
@@ -75,7 +72,6 @@ export default class PlagueCat extends EnemyBase {
       return;
     }
 
-    // 平时病恹恹慢走；一旦看到附近经验球，立刻加速小跑过去偷。
     if (time >= this.xpStealLockedUntil) {
       const gem = this.scene.findNearestXpGem?.(this.x, this.y, XP_NOTICE_DISTANCE);
       if (gem?.active) {
@@ -109,7 +105,6 @@ export default class PlagueCat extends EnemyBase {
 
     const distanceToPlayer = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
 
-    // 主动技能「散播谣言」：伤害很低，主要把感染源送到主角附近。
     if (
       time >= this.nextSneakGasAt
       && distanceToPlayer <= SNEAK_GAS_RANGE
@@ -125,7 +120,6 @@ export default class PlagueCat extends EnemyBase {
 
     this.applyVisualState('normal');
 
-    // 瘟疫猫同样保持后排距离；基础速度只略高于双子猪。
     const direction = new Phaser.Math.Vector2(player.x - this.x, player.y - this.y);
     if (direction.lengthSq() <= 1) {
       this.setVelocity(0, 0);

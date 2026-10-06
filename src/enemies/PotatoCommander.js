@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES } from '../config/gameConfig.js?v=2.0.0';
 
 export default class PotatoCommander extends EnemyBase {
   constructor(scene, x, y) {
@@ -12,12 +12,8 @@ export default class PotatoCommander extends EnemyBase {
     this.setTarget(scene.player);
     this.setDepth(13);
 
-    // 正式使用四阶段锁定 normal 母版。成长更新后 Boss 视觉放大约 25%，
-    // 但碰撞范围只温和增加，避免视觉放大偷偷扩大实际技能判定。
     this.applyPhaseNormalTexture(0);
 
-    // Step 3.1：四层血与四阶段严格一一对应。
-    // 第一层为天蓝色，之后依次为绿色、黄色、红色。
     const bossHpMultiplier = Number(scene.difficultyProfile?.bossHpMultiplier) || 1;
     this.maxSkyBlueHp = Math.max(1, Math.round(base.skyBlueHp * bossHpMultiplier));
     this.skyBlueHp = this.maxSkyBlueHp;
@@ -30,7 +26,6 @@ export default class PotatoCommander extends EnemyBase {
     this.currentPhase = 'memory';
 
     this.nextActionAt = scene.time.now + 2800;
-    // Step 3.3：所有阶段都有普通攻击「十字」。阶段越高，组频率越高、连击数越多。
     this.nextBasicAttackAt = scene.time.now + 1000;
     this.crossBurstShotsRemaining = 0;
     this.nextCrossBurstShotAt = -Infinity;
@@ -41,8 +36,6 @@ export default class PotatoCommander extends EnemyBase {
     this.calculationChaosStarted = false;
     this.cleanseComboUntil = -Infinity;
     this.graceComboUntil = -Infinity;
-    // 0.9.2-dev14.9.27：Boss 大技能加入独立冷却与最近技能记录。
-    // 避免同一技能连续刷屏，同时让配置中的各技能 interval 真正参与调度。
     this.lastSpecialAction = null;
     this.specialSkillReadyAt = {
       group: -Infinity,
@@ -53,8 +46,6 @@ export default class PotatoCommander extends EnemyBase {
       like: -Infinity
     };
 
-    // Internal Test v1.0.30：和丹麦鸭一致的主技能计划器。
-    // single / combo 都由外层 AI 预选；单个技能函数绝不硬调用下一招。
     this.majorActionCooldownUntil = scene.time.now + 2800;
     this.majorActionPlan = null;
     this.activeMajorSkill = null;
@@ -66,25 +57,16 @@ export default class PotatoCommander extends EnemyBase {
     this.nextPopulationCheckAt = scene.time.now + 700;
     this.nextEmergencyGroupAt = scene.time.now + 700;
 
-    // 0.9.2-dev14.8：「圣恩有价」会把信奉土豆榨取成当前阶段治疗、护盾与「圣裁」充能。
     this.graceShieldHp = 0;
     this.judgmentFaithCharge = 0;
-    // 0.9.2-dev14.9：圣裁改为“三次圣恩有价”明确计数，不再由抽取多少只土豆决定触发时机。
     this.judgmentGraceCount = 0;
     this.judgmentPending = false;
 
-    // Step 1.1: hit feedback must never modify the locked sprite's base scale.
     this.hitFlashRestoreEvent = null;
 
-    // Step 4A-C：整个抱团召唤演出期间保持阶段对应的抱团 PNG。
-    // 如果召唤过程中破层，直接切到“新阶段的抱团图”，而不是跳回 normal。
     this.groupArtRestoreEvent = null;
     this.groupSkillArtUntil = -Infinity;
 
-    // Step 2 debug-only inspection state. These flags are never used by normal spawns
-    // unless the developer explicitly presses the Potato Commander debug keys.
-    this.debugInspectionMode = false;
-    this.debugForcedPhaseIndex = null;
   }
 
   getTotalMaxVitality() {
@@ -113,8 +95,6 @@ export default class PotatoCommander extends EnemyBase {
     );
   }
 
-  // 正式阶段不再使用 75% / 50% / 25% 总血量阈值。
-  // 每一整层血只对应一个阶段：天蓝 → 绿 → 黄 → 红。
   calculatePhaseIndexFromHp() {
     if (this.skyBlueHp > 0) return 0;
     if (this.greenHp > 0) return 1;
@@ -142,24 +122,9 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   updatePhaseProgression() {
-    // Step 2 debug tool: keep a manually selected stage stable while inspecting art.
-    // Normal gameplay never sets debugForcedPhaseIndex, so the HP progression below
-    // remains untouched.
-    if (Number.isInteger(this.debugForcedPhaseIndex)) {
-      this.phaseIndex = Phaser.Math.Clamp(this.debugForcedPhaseIndex, 0, 3);
-      this.currentPhase = [
-        'memory',
-        'hands_on',
-        'holy',
-        'calculate'
-      ][this.phaseIndex];
-      return this.currentPhase;
-    }
 
     const hpPhase = this.calculatePhaseIndexFromHp();
 
-    // 阶段严格由“当前血层”推进：打空一整层才进入下一阶段。
-    // 已破层不会被治疗复活，因此阶段只会向前。
     if (hpPhase > this.phaseIndex) {
       this.phaseIndex = hpPhase;
 
@@ -173,7 +138,7 @@ export default class PotatoCommander extends EnemyBase {
       this.currentPhase = phases[this.phaseIndex];
 
       if (this.isGroupSkillArtActive()) {
-        this.applyDebugInspectionTexture(
+        this.applyPresentationTexture(
           this.getGroupTextureKey(this.phaseIndex)
         );
       } else {
@@ -188,8 +153,6 @@ export default class PotatoCommander extends EnemyBase {
       this.nextNarrativeAt = this.scene.time.now + 800;
       this.cancelBasicAttackBurst();
       this.nextBasicAttackAt = this.scene.time.now + 520;
-      // 破层后取消尚未执行的 combo 后续步骤，并给玩家一个短呼吸。
-      // 已经启动的场景技能仍由自身状态机自然收尾。
       if (!this.activeMajorSkill) this.majorActionPlan = null;
       this.nextActionAt = Math.max(this.nextActionAt, this.scene.time.now + 1100);
       this.majorActionCooldownUntil = Math.max(
@@ -197,94 +160,6 @@ export default class PotatoCommander extends EnemyBase {
         this.scene.time.now + 1100
       );
     }
-
-    return this.currentPhase;
-  }
-
-  debugForceInspectionPhase(index) {
-    const nextIndex = Phaser.Math.Clamp(Math.trunc(index), 0, 3);
-    const phases = ['memory', 'hands_on', 'holy', 'calculate'];
-
-    this.debugInspectionMode = true;
-    this.debugForcedPhaseIndex = nextIndex;
-    this.phaseIndex = nextIndex;
-    this.currentPhase = phases[nextIndex];
-
-    this.applyPhaseNormalTexture(nextIndex);
-    this.setVelocity(0, 0);
-
-    return this.currentPhase;
-  }
-
-  debugExitInspection() {
-    this.debugInspectionMode = false;
-    this.debugForcedPhaseIndex = null;
-
-    // Return to the stage implied by current vitality. This is debug-only and does not
-    // change the normal one-way stage progression used during actual gameplay.
-    this.phaseIndex = this.calculatePhaseIndexFromHp();
-    this.currentPhase = [
-      'memory',
-      'hands_on',
-      'holy',
-      'calculate'
-    ][this.phaseIndex];
-
-    this.applyPhaseNormalTexture(this.phaseIndex);
-    this.nextActionAt = this.scene.time.now + 1600;
-
-    return this.currentPhase;
-  }
-
-  debugJumpToGameplayPhase(index) {
-    const nextIndex = Phaser.Math.Clamp(Math.trunc(index), 0, 3);
-    const phases = ['memory', 'hands_on', 'holy', 'calculate'];
-
-    // 与静态“阶段检查”不同：这个入口直接修改四层血，使正常 AI 真正处在目标阶段。
-    // 已经越过的血层清零；目标层与后续层保持满血，便于连续测试技能。
-    this.skyBlueHp = nextIndex >= 1 ? 0 : this.maxSkyBlueHp;
-    this.greenHp = nextIndex >= 2 ? 0 : this.maxGreenHp;
-    this.yellowHp = nextIndex >= 3 ? 0 : this.maxYellowHp;
-    this.hp = this.maxHp;
-
-    this.debugInspectionMode = false;
-    this.debugForcedPhaseIndex = null;
-    this.phaseIndex = nextIndex;
-    this.currentPhase = phases[nextIndex];
-
-    if (this.groupArtRestoreEvent) {
-      this.groupArtRestoreEvent.remove(false);
-      this.groupArtRestoreEvent = null;
-    }
-    this.groupSkillArtUntil = -Infinity;
-
-    this.cancelBasicAttackBurst();
-    this.applyPhaseNormalTexture(nextIndex);
-    this.setVelocity(0, 0);
-
-    const now = this.scene.time.now;
-    this.actionLockedUntil = -Infinity;
-    this.nextActionAt = now + 650;
-    this.majorActionCooldownUntil = now + 650;
-    this.majorActionPlan = null;
-    this.activeMajorSkill = null;
-    this.activeMajorSkillStartedAt = -Infinity;
-    this.activeMajorSkillMinFinishAt = -Infinity;
-    this.activeMajorSkillDeadline = -Infinity;
-    this.activeMajorSkillCycleId = null;
-    this.nextBasicAttackAt = now + 380;
-    this.nextNarrativeAt = now + 1100;
-    this.cleanseComboUntil = -Infinity;
-    this.graceComboUntil = -Infinity;
-    this.lastSpecialAction = null;
-    Object.keys(this.specialSkillReadyAt ?? {}).forEach((key) => {
-      this.specialSkillReadyAt[key] = -Infinity;
-    });
-
-    this.scene.onPotatoCommanderPhaseChanged?.(
-      this,
-      this.currentPhase
-    );
 
     return this.currentPhase;
   }
@@ -299,19 +174,16 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   applyPhaseNormalTexture(index = this.phaseIndex) {
-    return this.applyDebugInspectionTexture(
+    return this.applyPresentationTexture(
       this.getPhaseNormalTextureKey(index)
     );
   }
 
-  applyDebugInspectionTexture(textureKey) {
+  applyPresentationTexture(textureKey) {
     if (!this.scene.textures.exists(textureKey)) return false;
 
     this.setTexture(textureKey);
 
-    // Preserve each locked PNG's own aspect ratio. Every normal stage keeps the same
-    // 198 px height, so the visible feet stay on the same gameplay baseline while later
-    // stages can become wider through their more elaborate silhouettes.
     const frame = this.scene.textures.getFrame(textureKey);
     const sourceWidth = Math.max(1, frame?.realWidth ?? frame?.width ?? 1);
     const sourceHeight = Math.max(1, frame?.realHeight ?? frame?.height ?? 1);
@@ -319,7 +191,6 @@ export default class PotatoCommander extends EnemyBase {
     const displayWidth = displayHeight * (sourceWidth / sourceHeight);
     this.setDisplaySize(displayWidth, displayHeight);
 
-    // Keep the collision footprint identical to the approved Step 1 fix.
     if (this.body) {
       const sx = Math.max(0.001, Math.abs(this.scaleX));
       const sy = Math.max(0.001, Math.abs(this.scaleY));
@@ -352,7 +223,7 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   showGroupSkillArt(durationMs = ENEMIES.potatoCommander.groupCastArtMs) {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
 
     if (this.groupArtRestoreEvent) {
       this.groupArtRestoreEvent.remove(false);
@@ -363,16 +234,14 @@ export default class PotatoCommander extends EnemyBase {
     this.groupSkillArtUntil = this.scene.time.now + duration;
 
     const textureKey = this.getGroupTextureKey(this.phaseIndex);
-    if (!this.applyDebugInspectionTexture(textureKey)) return false;
+    if (!this.applyPresentationTexture(textureKey)) return false;
 
     this.groupArtRestoreEvent = this.scene.time.delayedCall(duration, () => {
       this.groupArtRestoreEvent = null;
       this.groupSkillArtUntil = -Infinity;
 
-      if (!this.active || this.isDead || this.debugInspectionMode) return;
+      if (!this.active || this.isDead) return;
 
-      // 只要当前还是任一阶段的抱团图，就回到“当前阶段” normal。
-      // 若后续其他技能已经切图，不让旧抱团计时器覆盖它。
       if (this.isGroupSkillTexture()) {
         this.applyPhaseNormalTexture(this.phaseIndex);
       }
@@ -399,16 +268,16 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   showSmashSkillArt() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
 
     const textureKey = this.getSmashTextureKey(this.phaseIndex);
     if (!textureKey) return false;
 
-    return this.applyDebugInspectionTexture(textureKey);
+    return this.applyPresentationTexture(textureKey);
   }
 
   restoreNormalAfterSmash() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (!this.isSmashSkillTexture()) return false;
     return this.applyPhaseNormalTexture(this.phaseIndex);
   }
@@ -430,14 +299,14 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   showBlessSkillArt() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     const textureKey = this.getBlessTextureKey(this.phaseIndex);
     if (!textureKey) return false;
-    return this.applyDebugInspectionTexture(textureKey);
+    return this.applyPresentationTexture(textureKey);
   }
 
   restoreNormalAfterBless() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (!this.isBlessSkillTexture()) return false;
     return this.applyPhaseNormalTexture(this.phaseIndex);
   }
@@ -459,14 +328,14 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   showCleanseSkillArt() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     const textureKey = this.getCleanseTextureKey(this.phaseIndex);
     if (!textureKey) return false;
-    return this.applyDebugInspectionTexture(textureKey);
+    return this.applyPresentationTexture(textureKey);
   }
 
   restoreNormalAfterCleanse() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (!this.isCleanseSkillTexture()) return false;
     return this.applyPhaseNormalTexture(this.phaseIndex);
   }
@@ -476,38 +345,37 @@ export default class PotatoCommander extends EnemyBase {
   }
 
   showLikeSkillArt() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
-    // 「点赞」目前属于第三阶段「圣光普照」专属技能，严格使用三阶段母版派生的专用帧。
+    if (!this.active || this.isDead) return false;
     if (this.phaseIndex !== 2) return false;
-    return this.applyDebugInspectionTexture('potatoCommanderS3LikeArt');
+    return this.applyPresentationTexture('potatoCommanderS3LikeArt');
   }
 
   restoreNormalAfterLike() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (!this.isLikeSkillTexture()) return false;
     return this.applyPhaseNormalTexture(this.phaseIndex);
   }
 
   showGraceSkillArt() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (this.phaseIndex < 3) return false;
-    return this.applyDebugInspectionTexture('potatoCommanderS4GraceArt');
+    return this.applyPresentationTexture('potatoCommanderS4GraceArt');
   }
 
   restoreNormalAfterGrace() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (this.texture?.key !== 'potatoCommanderS4GraceArt') return false;
     return this.applyPhaseNormalTexture(this.phaseIndex);
   }
 
   showJudgmentSkillArt() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (this.phaseIndex < 3) return false;
-    return this.applyDebugInspectionTexture('potatoCommanderS4JudgmentCastArt');
+    return this.applyPresentationTexture('potatoCommanderS4JudgmentCastArt');
   }
 
   restoreNormalAfterJudgment() {
-    if (!this.active || this.isDead || this.debugInspectionMode) return false;
+    if (!this.active || this.isDead) return false;
     if (this.texture?.key !== 'potatoCommanderS4JudgmentCastArt') return false;
     return this.applyPhaseNormalTexture(this.phaseIndex);
   }
@@ -579,12 +447,6 @@ export default class PotatoCommander extends EnemyBase {
     this.updateStatusCore(time);
     const phase = this.updatePhaseProgression();
 
-    // Step 2 debug inspection deliberately freezes movement / random skills / narrative
-    // so stage art can be checked without other boss logic changing underneath it.
-    if (this.debugInspectionMode) {
-      this.setVelocity(0, 0);
-      return;
-    }
 
 
     if (
@@ -598,8 +460,6 @@ export default class PotatoCommander extends EnemyBase {
       return;
     }
 
-    // 「下黑水」是独立 Ultimate：三枚十字 READY 后优先于任何 single/combo。
-    // 它不属于 majorActionPlan，也不由「圣恩有价」技能函数硬调用。
     if (
       this.phaseIndex >= 3
       && this.judgmentPending === true
@@ -614,8 +474,6 @@ export default class PotatoCommander extends EnemyBase {
       }
     }
 
-    // S4 维护“信徒环 + 前线土豆”。低人口时仍可以紧急抱团，
-    // 但不再直接调用技能：只向同一个 majorActionPlan 调度器塞入一个 forced single。
     if (time >= this.nextPopulationCheckAt) {
       this.nextPopulationCheckAt = time + ENEMIES.potatoCommander.commanderPopulationCheckMs;
       if (this.phaseIndex >= 3) this.scene.maintainCommanderFollowerRing?.(this);
@@ -639,21 +497,17 @@ export default class PotatoCommander extends EnemyBase {
 
     const majorActionHandled = this.updateMajorActionScheduler(time, phase);
     if (majorActionHandled) {
-      // combo 内部等待期只留呼吸，不允许普通十字或另一个随机大技能插队。
       this.cancelBasicAttackBurst();
       this.setVelocity(0, 0);
       return;
     }
 
-    // 本帧若刚进入特殊技能锁定，不允许普通十字重新起一组连击。
     if (time < this.actionLockedUntil) {
       this.cancelBasicAttackBurst();
       this.setVelocity(0, 0);
       return;
     }
 
-    // 普通攻击不占技能名 / 台词通道。每阶段分别为 1 / 2 / 3 / 4 连击。
-    // 组内十字以短间隔连续点射；特殊技能开始会立即取消尚未发出的连击。
     this.updateBasicCrossBurst(time);
 
     const direction = new Phaser.Math.Vector2(
@@ -725,7 +579,6 @@ export default class PotatoCommander extends EnemyBase {
     this.crossBurstShotsRemaining = this.getBasicCrossBurstCount();
     this.nextCrossBurstShotAt = time;
 
-    // 同一帧先发第一枚，使普通攻击反应更干脆。
     this.updateBasicCrossBurst(time);
   }
 
@@ -816,8 +669,6 @@ export default class PotatoCommander extends EnemyBase {
     if (!this.isSpecialSkillSupported(skill, phase)) return false;
     if (skill !== 'cross' && !this.isSpecialSkillReady(skill, time)) return false;
 
-    // 抱团会真实生成新土豆，所以后续团魂 / 独美 / 圣恩可在计划阶段先允许，
-    // 到真正执行该步骤时再重新检查现场条件。
     const groupBefore = priorSteps.includes('group');
     if (skill === 'holy') return groupBefore || this.hasHolyTargets();
     if (skill === 'cleanse') return groupBefore || this.scene.canCommanderCleanse?.(this) === true;
@@ -903,7 +754,6 @@ export default class PotatoCommander extends EnemyBase {
       addCombo('absorb_smash', ['absorb', 'smash'], ENEMIES.potatoCommander.comboAbsorbSmashWeight ?? 10);
     }
 
-    // 不连续重复同一个组合；如果它是唯一可用方案才保留。
     const nonRepeat = choices.filter((entry) => (
       entry.kind !== 'combo' || entry.name !== this.lastMajorActionPlanName
     ));
@@ -1159,15 +1009,11 @@ export default class PotatoCommander extends EnemyBase {
     return true;
   }
 
-  // Compatibility wrapper for old debug/regression callers. Normal gameplay no longer
-  // picks a skill here; all choices go through updateMajorActionScheduler().
   tryRandomInheritedSkill(time, phase) {
     return this.updateMajorActionScheduler(time, phase);
   }
 
   tryNarrative() {
-    // 0.9.2-dev14.7.1：土豆指挥官不再播放阶段普通随机碎碎念。
-    // 所有保留台词只绑定到对应技能触发。
     return;
   }
 
@@ -1193,7 +1039,6 @@ export default class PotatoCommander extends EnemyBase {
       Math.round(amount * (1 - totalDefense))
     );
 
-    // 「圣恩有价」榨取出的护盾先于当前血层承伤，但永远不会复活已经破掉的血层。
     if (this.graceShieldHp > 0 && remaining > 0) {
       const absorbed = Math.min(this.graceShieldHp, remaining);
       this.graceShieldHp = Math.max(0, this.graceShieldHp - absorbed);
@@ -1208,9 +1053,6 @@ export default class PotatoCommander extends EnemyBase {
       }
     }
 
-    // Step 3.1：一次命中只结算当前血层。
-    // 即使伤害超过当前层剩余 HP，也不穿透到下一层，
-    // 从而保证每个阶段都拥有完整的一层血，不会被大伤害直接跳阶段。
     if (this.skyBlueHp > 0) {
       this.skyBlueHp = Math.max(0, this.skyBlueHp - remaining);
     } else if (this.greenHp > 0) {
@@ -1227,12 +1069,8 @@ export default class PotatoCommander extends EnemyBase {
       return true;
     }
 
-    // 在破层这一击结束时立刻换母版 / 阶段，不等待下一帧 AI update。
     this.updatePhaseProgression();
 
-    // Step 1.1: the old placeholder boss used an absolute scale tween on hit.
-    // That made the high-resolution locked PNG grow dramatically on every contact.
-    // Keep the locked display size unchanged and use alpha-only feedback instead.
     this.playHitFlash();
 
     return false;
@@ -1241,7 +1079,6 @@ export default class PotatoCommander extends EnemyBase {
   playHitFlash() {
     if (!this.active || this.isDead) return;
 
-    // Do not fight the existing sky-smash fade animation.
     if (this.scene.commanderSkySmashActive === true || this.alpha < 0.98) return;
 
     if (this.hitFlashRestoreEvent) {
@@ -1261,8 +1098,6 @@ export default class PotatoCommander extends EnemyBase {
   healActiveLayer(amount) {
     if (amount <= 0) return 0;
 
-    // 已经破掉的上一级血层永久保持 0；治疗只补当前阶段这一层。
-    // 因此总血量可以增加，但阶段 / 母版绝不会倒退。
     if (this.skyBlueHp > 0) {
       const before = this.skyBlueHp;
       this.skyBlueHp = Math.min(

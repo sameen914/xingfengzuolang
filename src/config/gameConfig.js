@@ -1,8 +1,6 @@
 export const RELEASE = Object.freeze({
-  INTERNAL_TEST_BUILD: false,
   POTATO_COMMANDER_PUBLISHED: true,
-  DEVELOPER_TOOLS: false,
-  BUILD_LABEL: 'V1.1.0'
+  BUILD_LABEL: 'V2.0.0'
 });
 
 export const GAME = {
@@ -14,30 +12,31 @@ export const GAME = {
 };
 
 
-// Internal Test v1.1.0：难度统一配置。
-// 「简单」作为当前正式平衡基线；容易 / 困难只通过倍率改变容错与压力，
-// 不改技能机制、不删除 Boss 阶段，也不改变已经锁定的演出时间轴。
 export const DIFFICULTY_PROFILES = Object.freeze({
   easy: Object.freeze({
     key: 'easy',
-    label: '容易',
-    description: '更高容错，适合第一次体验完整演出',
-    playerMaxHpMultiplier: 1.30,
-    contactInvulnMultiplier: 1.25,
-    incomingDamageMultiplier: 0.80,
-    minionHpMultiplier: 0.82,
+    label: '简单',
+    description: '割草爽玩：怪更多但更脆、更慢，适合体验完整成长',
+    playerMaxHpMultiplier: 1.22,
+    contactInvulnMultiplier: 1.15,
+    incomingDamageMultiplier: 0.85,
+    minionHpMultiplier: 0.75,
+    eliteHpMultiplier: 0.80,
     bossHpMultiplier: 0.85,
     minionSpeedMultiplier: 0.92,
-    bossSpeedMultiplier: 0.94,
-    spawnIntervalMultiplier: 1.16,
-    xpNeedMultiplier: 0.85,
-    bossActionCooldownMultiplier: 1.18,
-    bossComboWeightMultiplier: 0.72,
-    guardianDamageMultiplier: 1.15
+    bossSpeedMultiplier: 0.97,
+    spawnIntervalMultiplier: 0.95,
+    eliteSpawnIntervalMultiplier: 1.33,
+    xpNeedMultiplier: 0.90,
+    bossActionCooldownMultiplier: 1.10,
+    bossComboWeightMultiplier: 0.82,
+    guardianDamageMultiplier: 1.10,
+    supportHeartIntervalMultiplier: 1.00,
+    supportHeartKillDropChance: 0.00
   }),
   normal: Object.freeze({
     key: 'normal',
-    label: '简单',
+    label: '普通',
     description: '标准节奏，当前所有 Boss 机制的基准难度',
     playerMaxHpMultiplier: 1,
     contactInvulnMultiplier: 1,
@@ -47,27 +46,33 @@ export const DIFFICULTY_PROFILES = Object.freeze({
     minionSpeedMultiplier: 1,
     bossSpeedMultiplier: 1,
     spawnIntervalMultiplier: 1,
+    eliteSpawnIntervalMultiplier: 1,
     xpNeedMultiplier: 1,
     bossActionCooldownMultiplier: 1,
     bossComboWeightMultiplier: 1,
-    guardianDamageMultiplier: 1
+    guardianDamageMultiplier: 1,
+    supportHeartIntervalMultiplier: 0.82,
+    supportHeartKillDropChance: 0.025
   }),
   hard: Object.freeze({
     key: 'hard',
     label: '困难',
-    description: '更少容错、更快压迫与更高组合技权重',
+    description: '更高密度、更快推进与更高 Boss 组合技压力',
     playerMaxHpMultiplier: 0.90,
-    contactInvulnMultiplier: 0.85,
-    incomingDamageMultiplier: 1.20,
-    minionHpMultiplier: 1.15,
-    bossHpMultiplier: 1.20,
-    minionSpeedMultiplier: 1.08,
-    bossSpeedMultiplier: 1.08,
-    spawnIntervalMultiplier: 0.88,
-    xpNeedMultiplier: 1.10,
-    bossActionCooldownMultiplier: 0.86,
-    bossComboWeightMultiplier: 1.28,
-    guardianDamageMultiplier: 0.90
+    contactInvulnMultiplier: 0.82,
+    incomingDamageMultiplier: 1.25,
+    minionHpMultiplier: 1.25,
+    bossHpMultiplier: 1.28,
+    minionSpeedMultiplier: 1.12,
+    bossSpeedMultiplier: 1.10,
+    spawnIntervalMultiplier: 0.82,
+    eliteSpawnIntervalMultiplier: 0.80,
+    xpNeedMultiplier: 1.12,
+    bossActionCooldownMultiplier: 0.80,
+    bossComboWeightMultiplier: 1.35,
+    guardianDamageMultiplier: 0.88,
+    supportHeartIntervalMultiplier: 0.68,
+    supportHeartKillDropChance: 0.045
   })
 });
 
@@ -84,24 +89,16 @@ export const PLAYER = {
   BULLET_SPEED: 580,
   BULLET_LIFETIME_MS: 1300,
 
-  // V1.1.0 成长规则：普通攻击月牙在 Lv.20 / Lv.40 增加到 2 / 3 枚。
   MULTI_CRESCENT_TWO_DAMAGE_MULTIPLIER: 0.75,
   MULTI_CRESCENT_THREE_DAMAGE_MULTIPLIER: 0.60,
   MULTI_CRESCENT_TWO_SPREAD_DEG: 8,
   MULTI_CRESCENT_THREE_SPREAD_DEG: 12,
   MULTI_CRESCENT_SPAWN_OFFSET: 7,
 
-  // 击败丹麦鸭后获得永久被动防御技能「月之守卫」。
-  // 采用“伪 3D 环绕”而不是单纯 2D 半椭圆：
-  // cos(theta) 控制左右位置，sin(theta) 表示前/后深度。
-  // 前侧：更低、更大、绘制在人物前；后侧：更高、更小、绘制在人物后。
-  // 仅在真正经过人物身体正后方时完全隐藏，左右后侧仍允许短暂露出，形成“钻到背后再出来”的环绕感。
-  // v2.1：月守改为更小、更快、更贴身的灵活轨道。
   MOON_GUARD_RADIUS_X: 60,
   MOON_GUARD_FRONT_RADIUS_Y: 21,
   MOON_GUARD_BACK_RADIUS_Y: 9,
   MOON_GUARD_ANCHOR_Y_OFFSET: 9,
-  // v2.3：在保留非匀速曲线的基础上整体再提速；钻入 / 窜出时的额外加速逻辑保持不变。
   MOON_GUARD_SPEED_RAD_PER_MS: 0.00455,
   MOON_GUARD_TRANSITION_SPEED_BOOST: 0.95,
   MOON_GUARD_HIDDEN_SPEED_BOOST: 0.28,
@@ -119,7 +116,6 @@ export const PLAYER = {
   MOON_GUARD_FRONT_DEPTH_OFFSET: 0.34,
   MOON_GUARD_BACK_DEPTH_OFFSET: -0.20,
 
-  // 红色不再作为月牙描边，而是覆盖在 PNG 周围的短寿命粒子。
   MOON_GUARD_PARTICLE_INTERVAL_MS: 28,
   MOON_GUARD_PARTICLE_COLOR: 0xff344d,
   MOON_GUARD_PARTICLE_HOT_COLOR: 0xff7682,
@@ -130,20 +126,19 @@ export const PLAYER = {
   CONTACT_INVULN_MS: 280,
   DASH_SPEED: 720,
   DASH_DURATION_MS: 175,
-  // 0.9.1：允许连续踩每个 500ms 强拍；不做 0 冷却，避免常驻无敌。
-  DASH_COOLDOWN_MS: 450,
+  DASH_COOLDOWN_MS: 3000,
   PERFECT_WINDOW_MS: 125,
   PERFECT_SHOCKWAVE_DAMAGE: 18,
   PERFECT_SHOCKWAVE_RADIUS: 120,
-  DANCE_PULSE_DAMAGE: 10,
-  DANCE_PULSE_RADIUS: 105,
-  DANCE_PULSE_INTERVAL_MS: 1700,
-  SOUND_WAVE_DAMAGE: 18,
+  SOUND_WAVE_DAMAGE: 0,
+  SOUND_WAVE_KNOCKBACK: 0,
   SOUND_WAVE_RADIUS: 180,
-  SOUND_WAVE_INTERVAL_MS: 4400,
-  SOUND_WAVE_KNOCKBACK: 260,
+  SOUND_WAVE_RADIUS_BY_LEVEL: Object.freeze([180, 195, 210, 225]),
+  SOUND_WAVE_INTERVAL_MS: 6500,
+  SOUND_WAVE_INTERVAL_MS_BY_LEVEL: Object.freeze([6500, 6000, 5500, 5000]),
+  SOUND_WAVE_STUN_MS_BY_LEVEL: Object.freeze([800, 900, 1000, 1200]),
+  SOUND_WAVE_ELITE_STUN_MULTIPLIER: 0.50,
 
-  // 高级 AOE：电力四射。通过升级解锁，低频但高冲击。
   ELECTRIC_BURST_DAMAGE: 34,
   ELECTRIC_BURST_RADIUS: 230,
   ELECTRIC_STUN_MS: 520,
@@ -153,18 +148,22 @@ export const PLAYER = {
   ELECTRIC_SHOCK_KNOCKBACK: 430,
   ELECTRIC_INTERVAL_MS: 11500,
 
-  // Combo milestone「舞台回旋」的基础数值。
-  STAGE_SPIN_DAMAGE: 22,
+  STAGE_SPIN_DAMAGE: 12,
   STAGE_SPIN_RADIUS: 205,
-  STAGE_SPIN_KNOCKBACK: 440,
+  STAGE_SPIN_KNOCKBACK: 0,
+  STAGE_SPIN_BASE_DISPLAY_SIZE: 160,
+  STAGE_SPIN_DAMAGE_BY_COMBO_LEVEL: Object.freeze([6, 7, 8, 9, 10, 11, 12]),
+  STAGE_SPIN_SIZE_GROWTH_START_COMBO: 40,
+  STAGE_SPIN_SIZE_GROWTH_COMBO_STEP: 10,
+  STAGE_SPIN_SIZE_GROWTH_PER_STEP: 0.05,
+  STAGE_SPIN_SIZE_MAX_SCALE: 1.20,
+  STAGE_SPIN_ALPHA_HIT_THRESHOLD: 20,
 
-  // 「升Key」：通过愤怒值蓄力。
   KEY_UP_MAX: 100,
   KEY_UP_DAMAGE: 52,
   KEY_UP_RADIUS: 350,
   KEY_UP_KNOCKBACK: 520,
 
-  // 蓝心投喂 / 「双向奔赴」。
   SUPPORT_MAX: 100,
   SUPPORT_PER_HEART: 25,
   SUPPORT_HEAL_NORMAL: 4,
@@ -172,7 +171,6 @@ export const PLAYER = {
   SUPPORT_ACTIVE_HEAL: 18,
   SUPPORT_ACTIVE_DURATION_MS: 5000,
   SUPPORT_ACTIVE_EXTRA_REDUCTION: 0.28,
-  // 蓝心现在停留在地图某处，不再追逐主角。
   SUPPORT_HEART_LIFETIME_MS: 14000,
   SUPPORT_HEART_FIRST_MS: 18000,
   SUPPORT_HEART_MIN_INTERVAL_MS: 19000,
@@ -180,56 +178,22 @@ export const PLAYER = {
   SUPPORT_HEART_MIN_DISTANCE: 190,
   SUPPORT_HEART_MAX_DISTANCE: 300,
 
-  // 0.9.0 统一 120 BPM 节拍系统：
-  // 强拍每 500ms，辅助拍位于中间 250ms；音乐状态切换不重置时钟。
-  BEAT_STRONG_WINDOW_MS: 95,
-  BEAT_AUX_WINDOW_MS: 58,
+  BEAT_STRONG_WINDOW_MS: 75,
+  BEAT_AUX_WINDOW_MS: 45,
 
-  // 0.9.2-dev11.3：「踩拍」成功后只强化下一发自动月牙。
-  // 判定窗口仍沿用上面的 95 / 58ms，不改变节拍难度。
-  BEAT_CHARGE_DAMAGE_MULTIPLIER: 1.20,
-  BEAT_CHARGE_SIZE_MULTIPLIER: 1.12,
-  BEAT_CHARGE_EXTRA_KNOCKBACK: 7,
-  BEAT_CHARGE_BOSS_EXTRA_KNOCKBACK: 1
+  BEAT_CHARGE_DAMAGE_MULTIPLIER: 1.00,
+  BEAT_CHARGE_SIZE_MULTIPLIER: 1.00,
+  BEAT_CHARGE_COMBO_START: 9999,
+  BEAT_CHARGE_COMBO_STEP: 9999,
+  BEAT_CHARGE_COMBO_DAMAGE_STEP: 0.05,
+  BEAT_CHARGE_COMBO_MAX_MULTIPLIER: 1.00,
+  BEAT_CHARGE_EXTRA_KNOCKBACK: 0,
+  BEAT_CHARGE_BOSS_EXTRA_KNOCKBACK: 0
 };
 
 
-// 0.9.2-dev11.4：高 Combo 不再靠主动按键释放「舞台回旋」，而是在 5 / 10 / 20 Combo 自动触发一档舞台奖励。
-// 数值按原舞台回旋基础值做比例缩放；Stage 3 才恢复完整范围/伤害/击退并清除敌方投射物。
-export const COMBO_STAGE_SPIN_REWARDS = Object.freeze([
-  Object.freeze({
-    combo: 5,
-    stageIndex: 0,
-    damageScale: 0.36,
-    radiusScale: 0.61,
-    knockbackScale: 0.34,
-    clearProjectiles: false,
-    label: '「舞台回旋·Ⅰ」'
-  }),
-  Object.freeze({
-    combo: 10,
-    stageIndex: 1,
-    damageScale: 0.64,
-    radiusScale: 0.80,
-    knockbackScale: 0.59,
-    clearProjectiles: false,
-    label: '「舞台回旋·Ⅱ」'
-  }),
-  Object.freeze({
-    combo: 20,
-    stageIndex: 2,
-    damageScale: 1,
-    radiusScale: 1,
-    knockbackScale: 1,
-    clearProjectiles: true,
-    label: '「舞台回旋·Ⅲ」'
-  })
-]);
-
 export const ENEMIES = {
   potato: {
-    // 0.8.14：土豆正式锁定为「厚血 / 高防 / 抗击退 / 压场」坦克。
-    // 鸭子 hp=20 / speed=108，因此普通土豆约为 2.2× HP、72% 移速。
     hp: 44,
     speed: 78,
     damage: 7,
@@ -240,7 +204,6 @@ export const ENEMIES = {
     contactCooldown: 700
   },
   duck: {
-    // 鸭子：最早出现，整体均衡；基础移动速度提高。
     hp: 20,
     speed: 108,
     damage: 6,
@@ -260,7 +223,6 @@ export const ENEMIES = {
     lifetimeMaxMs: 24000
   },
   roach: {
-    // 紫蟑螂：脆、攻击低于鸭子，但速度快且会快速繁殖。
     hp: 10,
     speed: 132,
     damage: 4,
@@ -275,7 +237,6 @@ export const ENEMIES = {
     hp: 155,
     speed: 38,
     damage: 9,
-    // 精英怪经验固定为标准普通怪（1 XP）的 5 倍。
     xp: 5,
     contactCooldown: 760
   },
@@ -283,19 +244,15 @@ export const ENEMIES = {
     hp: 120,
     speed: 50,
     damage: 8,
-    // 精英怪经验固定为标准普通怪（1 XP）的 5 倍。
     xp: 5,
     contactCooldown: 680
   },
   duckQueen: {
-    // 红色本体血 + 黄色前置血条。
-    // 黄色占总有效血量 40%，红色占 60%。
     hp: 660,
     armorHp: 440,
     speed: 102,
     damage: 0,
     defense: 0.18,
-    // Boss 经验固定为标准普通怪（1 XP）的 20 倍。
     xp: 20,
     contactCooldown: 900,
 
@@ -309,7 +266,6 @@ export const ENEMIES = {
     attachDistance: 110,
     preferredDistance: 62,
 
-    // 「贴贴」是范围被动。
     gentleStickTriggerRange: 155,
     obsessedStickTriggerRange: 195,
     frenzyStickTriggerRange: 235,
@@ -321,7 +277,6 @@ export const ENEMIES = {
     frenzyStickDashSpeed: 590,
     stickDashDurationMs: 560,
 
-    // 贴住后的吸血 / 挣脱。
     grappleBreakInputs: 12,
     grappleDrainDamage: 2,
     grappleDrainHeal: 2,
@@ -332,25 +287,18 @@ export const ENEMIES = {
     grappleReattachCooldownMs: 3500,
     grapplePostReleaseRoamMs: 1600,
 
-    // 二阶段「真心相待」解锁、三阶段继承：「陪我吃鱼」。
-    // 一条追踪必中死鱼 → 粉色鱼网 → 空格挣脱；未挣脱则持续拉进贴贴范围。
     fishSkillDistance: 155,
     fishSkillCooldownMs: 8200,
     fishHomingSpeed: 360,
     fishNetBreakInputs: 3,
     fishNetPullSpeed: 220,
 
-    // 二阶段解锁、三阶段继承：「蛊惑」。
-    // 法术型状态技能：不再投掷实体心。黑心施法后直接在主角身上留下 10 秒蛊惑印记。
-    // 命中瞬间只有短暂走神，避免 10 秒整段硬控；10 秒持续状态用于视觉与 soft combo 窗口。
     charmGuaranteedHit: true,
     charmSkillCooldownMs: 6800,
     charmCastMs: 620,
     charmStatusDurationMs: 10000,
     charmInitialDazeMs: 650,
 
-    // 主技能 AI 调度：单技能占多数，combo 概率随复杂度下降。
-    // 70 / 12 / 13 / 5 是类别权重；若某个 combo 当前条件不成立，会自动重新归一化。
     majorActionInitialCooldownMs: 1600,
     singleActionWeight: 70,
     comboCharmFishWeight: 12,
@@ -364,10 +312,6 @@ export const ENEMIES = {
     comboActionCooldownPerStepMs: 650,
     comboActionCooldownJitterMs: 450,
 
-    // dev14.19.0：「打黑框 ×3 → 大发卖」正式演出版。
-    // 黑框阶段仍允许玩家操作；每命中一个黑框额外减速 20%。
-    // 三层黑框叠满后先砸出「大发卖」标题；标题消失、黑框退场后进入纯演出：
-    // 粉色地裂/尖刺由外向内缩圈 → 主角 7 帧演出 → 挂刺 1 秒 → 晶体大爆炸/白光。
     ultimatePhaseEntryDelayMs: 5200,
     ultimateCooldownMinMs: 18000,
     ultimateCooldownMaxMs: 24000,
@@ -383,7 +327,6 @@ export const ENEMIES = {
     ultimateImpaleGroundDisplaySize: 550,
     ultimateGroundOffsetY: 48,
     ultimateGroundFadeMs: 210,
-    // 大发卖演绎期间的小怪避难区：按红水晶地面近似椭圆计算。
     ultimateEvacRadiusX: 282,
     ultimateEvacRadiusY: 184,
     ultimateEvacSafePadding: 72,
@@ -399,19 +342,19 @@ export const ENEMIES = {
     ultimateRoachChainExplosionMs: 380,
     ultimateRoachExplosionArmMs: 105,
     ultimateRoachEmptyBeatMs: 140,
-    ultimateCloseupDisplayH: 650,
-    ultimateCloseupPushInPx: 72,
+    ultimateCloseupDisplayH: 505,
+    ultimateCloseupPushInPx: 28,
     ultimateCloseupScreenX: 150,
-    ultimateCloseupBottomY: 540,
-    ultimateCloseupFeatherWidth: 520,
-    ultimateCutsceneDisplaySize: 132,
-    ultimateHangingDisplayScale: 0.90,
+    ultimateCloseupBottomY: 588,
+    ultimateCloseupFeatherWidth: 540,
+    ultimateCutsceneDisplaySize: 180,
+    ultimateHangingDisplayScale: 1.15,
     ultimateFrameReliefMs: 420,
     ultimateFrameNoticeMs: 460,
     ultimateFramePanic1Ms: 500,
     ultimateFramePanic2Ms: 540,
     ultimateFrameTrappedMs: 620,
-    ultimateFrameImpaledMs: 220,
+    ultimateFrameImpaledMs: 1200,
     ultimateFrameHangingMs: 1000,
     ultimateExplosionGrowMs: 220,
     ultimateExplosionBloomMs: 330,
@@ -422,8 +365,6 @@ export const ENEMIES = {
     ultimateDamageCurrentHpRatio: 0.55
   },
   potatoCommander: {
-    // Internal Test v1.0.7：第一阶段只占总血量 10%，后三阶段各占 30%。
-    // 总耐久仍保持 2800：280 + 840 + 840 + 840。
     skyBlueHp: 280,
     greenHp: 840,
     yellowHp: 840,
@@ -431,12 +372,9 @@ export const ENEMIES = {
     speed: 80,
     damage: 12,
     defense: 0.25,
-    // Boss 经验固定为标准普通怪（1 XP）的 20 倍。
     xp: 20,
     contactCooldown: 760,
 
-    // Step 3.3：普通攻击「十字」继续由 Phaser Graphics 生成。
-    // 四阶段逐步提高组频率与连击数；组内点射间隔较短，形成明显连击。
     crossAttackDamage: 5,
     crossAttackSpeed: 310,
     crossAttackCooldownMsByPhase: [1400, 1250, 1100, 950],
@@ -445,11 +383,7 @@ export const ENEMIES = {
     crossAttackLifetimeMs: 3000,
     crossAttackExplosionDurationMs: 260,
 
-    // 阶段不再使用总血量百分比阈值；由当前血层直接决定。
 
-    // Step 4A-C：「抱团」改为正式召唤演出。
-    // 指挥官整个召唤期间保持阶段对应的抱团 PNG；脚底出现扁平召唤光晕，
-    // 新土豆在周围从地下上升，原地跳一下，再开始向主角靠近。
     groupIntervalMs: 6800,
     groupTargets: 7,
     groupBuffMs: 4700,
@@ -460,8 +394,6 @@ export const ENEMIES = {
     groupCastArtMs: 1650,
     groupSpawnRadiusX: 118,
     groupSpawnRadiusY: 58,
-    // 0.9.2-dev14.8.2：S4 把土豆分成“信徒环 + 前线土豆”。
-    // 场上土豆 <= 15 就优先抱团补充；一次补团后尽量把总数拉回 18 左右。
     commanderGroupTriggerPopulation: 15,
     commanderTargetPotatoPopulation: 18,
     commanderPopulationCheckMs: 350,
@@ -480,25 +412,15 @@ export const ENEMIES = {
     skySmashWarningMs: 760,
     skySmashRadius: 102,
     skySmashDamage: 8,
-    // 0.9.2-dev14.5.2：下凡命中后使用“砸晕 → 恢复”两帧动画。
-    // 数组依次对应 S2 / S3 / S4；总受控时间分别为 0.55 / 0.70 / 0.85 秒。
-    // 「下凡」命中后总砸晕停留时间统一为 2 秒：1.5s 砸晕帧 + 0.5s 恢复帧。
     skySmashStunFrameMsByPhase: [1500, 1500, 1500],
     skySmashRecoveryFrameMsByPhase: [500, 500, 500],
-    // 0.9.2-dev14.5.4：命中后主角沿下凡来向的反方向短滑移，避免与 Boss 重叠看不见。
-    // 这是最低滑移量；实际命中时还会根据 Boss 当前显示轮廓计算“完全错身”所需距离。
     skySmashSlideDistanceByPhase: [56, 64, 72],
     skySmashSlideDurationMsByPhase: [120, 140, 160],
     skySmashClearanceMargin: 16,
-    // 被砸出来时给主角一个短促的受击闪烁，强化“真的被砸中”的反馈。
     skySmashHitFlashMsByPhase: [120, 140, 160],
-    // Boss 落地后继续保持下凡 PNG，让落地重量感明显一些。
     skySmashLandingHoldMsByPhase: [650, 750, 900],
 
 
-
-    // Internal Test v1.0.7：「点赞」。第三阶段专属技能。
-    // 连续从主角附近地面窜出点赞手势；命中会造成一次伤害并把主角顶飞，落地后短暂停顿。
     likeIntervalMs: 6600,
     likeCastArtMs: 1320,
     likeThumbCount: 3,
@@ -523,8 +445,6 @@ export const ENEMIES = {
     holyBeamFadeMs: 260,
     holyReleaseMs: 1600,
 
-    // Internal Test v1.0.30：「团魂」保留原有三段变绿节奏。完全变绿以后才进入
-    // 自爆状态：危险闪烁 → 高速追踪 → 靠近主角立即程序化爆炸 → 土豆消失。
     holySelfDestructArmMs: 340,
     holySelfDestructBlinkMs: 92,
     holySelfDestructSpeed: 272,
@@ -535,8 +455,6 @@ export const ENEMIES = {
     holySelfDestructShakeMs: 145,
     holySelfDestructShakeIntensity: 0.0135,
 
-    // 和丹麦鸭一致：普通主技能统一由外层计划器选择 single / combo。
-    // 技能本身永远不硬调用下一招；combo 每一步结束后重新检查现场条件。
     comboStepGapMinMs: 760,
     comboStepGapMaxMs: 1080,
     comboActionCooldownBaseMs: 2200,
@@ -557,8 +475,6 @@ export const ENEMIES = {
     comboGroupCleanseHolyWeight: 5,
     comboCrossVolleyGapMs: 135,
 
-    // 0.9.2-dev14.7：「净场」把 Boss 身边已经经营出来的土豆扫到暗月周围。
-    // S3 / S4 可用；优先投送赐福后的特殊土豆，再按距离补普通土豆。
     cleanseRadius: 520,
     cleanseTargets: 6,
     cleanseMinTargets: 3,
@@ -575,9 +491,6 @@ export const ENEMIES = {
     cleanseComboNextActionMinMs: 2500,
     cleanseComboNextActionMaxMs: 3200,
 
-    // 0.9.2-dev14.8：「圣恩有价」正式机制。
-    // S4 从身边真实存在的信奉土豆中优先抽取赐福等级更高者，
-    // 2.4 秒内四次脉冲逐步榨取；玩家可在完成前击杀目标阻断完整收益。
     absorbIntervalMs: 7600,
     absorbCount: 6,
     absorbRadius: 520,
@@ -590,17 +503,13 @@ export const ENEMIES = {
     absorbShieldRatioPerFaith: 0.01,
     absorbShieldCapRatio: 0.10,
     absorbJudgmentChargeCap: 18,
-    // 圣恩有价：能量法阵固定压到指挥官脚下；红金脉冲与持续粒子流强化“榨取”感。
     absorbAuraYOffset: 48,
     absorbStreamIntervalMs: 54,
     absorbStreamMotesPerTick: 5,
     absorbPulseBurstMotes: 10,
 
-    // 0.9.2-dev14.9：「圣裁」正式终极技。
-    // 每发动一次「圣恩有价」点亮一个十字；第三个十字点亮后，在该次榨取结束后立刻进入圣裁。
     judgmentGraceCastsRequired: 3,
     judgmentIntroMs: 760,
-    // 十字雨三段：主角周围零散落下 → 明显加速压迫 → 疯狂封路暴雨。
     judgmentRainCounts: [8, 18, 42],
     judgmentRainIntervalsMs: [280, 115, 62],
     judgmentRainFallMs: [440, 325, 245],
@@ -611,24 +520,18 @@ export const ENEMIES = {
     judgmentSurroundRadiusMin: [54, 42, 28],
     judgmentSurroundRadiusMax: [112, 88, 60],
     judgmentRainFinalDelayMs: 430,
-    // 最后一段十字雨进入顶点前，角色会出现短暂慌乱 / 受压制演绎。
     judgmentPanicLeadMs: 1120,
     judgmentAfterimageMs: 680,
     judgmentDamageCurrentHpRatio: 0.60,
     judgmentHeadHitDamageMin: 2,
     judgmentHeadHitDamageMax: 8,
     judgmentPostHoldMs: 1040,
-    // 圣裁清屏后给画面一个短呼吸，不让普通刷怪立刻填回来。
     judgmentSpawnBreatherMs: 1500,
 
-    // Internal Test v1.0.15：高分辨率动作帧继承下黑水触发前的真实主角显示尺寸；
-    // 不再写死 60×60。左侧 cut-in 独立，十字落地震动与最终轰炸沿用 v1.0.14。
-    // 先停顿，再恢复原版 8→18→42 全屏十字雨；少量剧情十字只负责配合人物 9 帧，不替代全屏雨。
     blackwaterPreludePauseMs: 520,
     blackwaterCloseupFeatherWidth: 540,
     blackwaterRainStartMs: 1450,
     blackwaterPostHoldMs: 1450,
-    // v1.0.14：最终轰炸必须先完整可见，再烧成纯白。
     blackwaterFinalBombardmentVisibleMs: 380,
     blackwaterFinalBombardmentVisibleMsV116: 520,
     blackwaterFinalEndingRevealDelayMs: 540,
@@ -639,7 +542,6 @@ export const ENEMIES = {
     blackwaterFinalShakeMs: 1120,
     blackwaterFinalShakeStrength: 0.040,
     blackwaterFinalShakeStrengthV116: 0.055,
-    // v1.0.23：标题与演绎分离；疯狂阶段先完成 7→8→9，最终爆炸再直接过曝到白屏。
     blackwaterTitleHoldMsV123: 900,
     blackwaterFinalBombardmentVisibleMsV123: 300,
     blackwaterFinalEndingRevealDelayMsV123: 0,
@@ -647,26 +549,21 @@ export const ENEMIES = {
     blackwaterFinalWhiteInMsV123: 90,
     blackwaterFinalWhiteHoldMsV123: 900,
     blackwaterFinalWhiteOutMsV123: 1100,
-    // v1.0.24：最终逐帧时间轴 / 多一轮镜像闪躲 / 3.4s 十字暴雨 / 07→08→09 同方向。
     blackwaterTitleHoldMsV124: 850,
     blackwaterFinalBombardmentVisibleMsV124: 300,
     blackwaterFinalWhiteInMsV124: 100,
     blackwaterFinalWhiteHoldMsV124: 900,
     blackwaterFinalWhiteOutMsV124: 1150,
-    // v1.0.25：演绎从“有呼吸 → 逐渐加速 → 受伤后放慢”重新配拍；终爆几乎立刻过曝到白，
-    // 白屏至少维持 1s，并在白屏结束时才停止爆炸余震。
     blackwaterFinalBombardmentVisibleMsV125: 80,
     blackwaterFinalWhiteInMsV125: 55,
     blackwaterFinalWhiteHoldMsV125: 1250,
     blackwaterFinalWhiteOutMsV125: 1100,
     blackwaterFinalShakeStrengthV125: 0.052,
-    // v1.0.26：人物动作节奏锁定 v1.0.25；只强化最终蓄压/HP反馈/真正可见的爆盲白屏。
     blackwaterFinalBombardmentVisibleMsV126: 260,
     blackwaterFinalWhiteInMsV126: 90,
     blackwaterFinalWhiteHoldMsV126: 1300,
     blackwaterFinalWhiteOutMsV126: 1100,
     blackwaterFinalShakeStrengthV126: 0.050,
-    // v1.0.27：白屏总时长约减半；爆炸先留出约 0.7s 让 HP-XX 可读，再进入更短的爆盲恢复。
     blackwaterFinalBombardmentVisibleMsV127: 460,
     blackwaterFinalWhiteInMsV127: 45,
     blackwaterFinalWhiteHoldMsV127: 650,
@@ -684,10 +581,6 @@ export const SPAWN = {
   MIN_INTERVAL_MS: 240,
   MAX_ALIVE: 165,
 
-  // 0.9.2-dev14.8.3：镜头内“怪潮”不再用 3 个突然跳档的固定区间，
-  // 而是随实际游玩时间连续增长。目标包含鸭子、紫蟑螂、土豆、足球。
-  // 0:00≈15 → 1:00≈22 → 2:00≈30 → 3:00≈38 → 4:00≈45 → 5:00≈50。
-  // 5 分钟以后稳定在约 50；60 只是硬保护上限，不是日常目标。
   VISIBLE_TARGET_POINTS: [
     [0, 15],
     [60, 22],
@@ -708,19 +601,12 @@ export const SPAWN = {
   ROACH_START_SECONDS: 30,
   POTATO_START_SECONDS: 60,
   BALL_START_SECONDS: 90,
-  // 0.9.2-dev03：足球从单颗逐渐升级为组合连发。
-  // 1:30~2:59 保持单颗；3:00 起每轮 2 颗；5:00 起每轮 3 颗。
-  // 每颗间隔 1 秒，并在自己的生成瞬间重新瞄准主角。
   BALL_VOLLEY_DOUBLE_START_SECONDS: 180,
   BALL_VOLLEY_TRIPLE_START_SECONDS: 300,
   BALL_VOLLEY_SHOT_INTERVAL_MS: 1000,
-  // 足球解锁提前，但速度曲线仍从原来的 2:30 开始，
-  // 将「什么时候出现」和「什么时候开始加速」解耦，便于单独调节节奏。
   BALL_SPEED_RAMP_START_SECONDS: 150,
-  // 普通怪中期配比切换仍保持原 2:30，不随足球提前解锁而提前。
   MID_COMMON_MIX_START_SECONDS: 150,
 
-  // 0.9.2-dev02：前期新怪 / 精英首次进入时间整体前移。
   EARLY_ROACH_PAIR_SECONDS: 30,
   EARLY_WAVE_SECONDS: 45,
   EARLY_POTATO_INTRO_SECONDS: 60,
@@ -733,13 +619,9 @@ export const SPAWN = {
   SPAWN_DISTANCE_MIN: 500,
   SPAWN_DISTANCE_MAX: 720,
 
-  // 「土豆压场」：每只存活土豆让额外非土豆怪物压力 +6%，最多 +24%。
-  // 通过额外 duck / roach spawn credit 实现，不加快土豆自身刷新。
   POTATO_PRESSURE_PER_ALIVE: 0.06,
   POTATO_PRESSURE_CAP: 0.24,
-  POTATO_PRESSURE_DEBUG_INTERVAL_MS: 5000,
 
-  // 鸭子随机叫声：轻量画面活性，不允许刷屏。
   DUCK_QUACK_MIN_INTERVAL_MS: 2500,
   DUCK_QUACK_MAX_INTERVAL_MS: 5000,
   DUCK_QUACK_MAX_VISIBLE: 4
@@ -763,7 +645,6 @@ export const STATUS_EFFECTS = {
   poopProjectileSpeed: 285,
   poopProjectileLifetimeMs: 3600,
 
-  // 鸭后引发的生态状态
   jealousDurationMs: 1400,
   jealousAttackSpeedMultiplier: 1.10,
   jealousSpeedMultiplier: 1.30,
@@ -772,8 +653,6 @@ export const STATUS_EFFECTS = {
   sugarHighSpeedMultiplier: 1.25,
   sugarHighReproductionIntervalMultiplier: 0.55,
 
-  // 鸭后「陪我吃鱼」投射物。
-  // 女王鸭「陪我吃鱼」鱼网牵引速度。与土豆指挥官吸血不同：这是实体黏网拖拽。
   fishNetPullSpeed: 220,
 
   fishSmallDamage: 4,
@@ -796,8 +675,6 @@ export const STATUS_EFFECTS = {
 
   fishProjectileLifetimeMs: 3600,
 
-  // 「赐福」完成后的绿色剧毒土豆：真正接触主角后触发 Boss 强毒。
-  // 强毒每 0.5 秒 -1 HP，共 15 秒；蓝心不能解除，只能由「双向奔赴」净化。
   blessedToxicPoisonDurationMs: 15000,
   blessedToxicPoisonTickMs: 500,
   blessedToxicPoisonDamage: 1

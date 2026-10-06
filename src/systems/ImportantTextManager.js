@@ -1,16 +1,5 @@
 import * as Phaser from 'phaser';
 
-/**
- * 0.9.2-dev07.1-B
- * 统一“重要文字”通道。
- *
- * 目标：
- * - 同一角色的重要台词/阶段名/核心技能名按队列播放，不互相覆盖。
- * - 不同角色可以同时显示，但若画面位置碰撞会自动错位。
- * - 普通世界浮字（EXP、伤害、回血、中毒等）使用 GameScene 的普通通道，
- *   不参与这里的占位，因此永远不会阻塞重要文字。
- * - 高优先级阶段切换可以替换同角色当前较低优先级剧情台词。
- */
 export default class ImportantTextManager {
   constructor(scene) {
     this.scene = scene;
@@ -21,7 +10,6 @@ export default class ImportantTextManager {
     this.nextSourceId = 1;
     this.sequence = 1;
     this.defaultGapMs = 320;
-    // 角色台词采用轻微延迟跟随，不硬绑定在角色头顶。
     this.defaultFollowLagMs = 150;
   }
 
@@ -119,7 +107,6 @@ export default class ImportantTextManager {
     });
     this.sequence += 1;
 
-    // 高优先级先播；同优先级维持进入队列的顺序。
     queue.sort((a, b) => (
       b.priority - a.priority
       || a.sequence - b.sequence
@@ -183,8 +170,6 @@ export default class ImportantTextManager {
     };
     this.activeBySource.set(key, record);
 
-    // 非角色跟随文字维持原来的轻微上浮。
-    // 跟随文字的 x/y 由 update() 用阻尼追踪 source，避免 tween 与跟随逻辑抢属性。
     if (!(item.followSource && item.source)) {
       scene.tweens.add({
         targets: label,
@@ -220,7 +205,6 @@ export default class ImportantTextManager {
     this.activeLabels = this.activeLabels.filter((item) => item?.active);
     let targetY = y;
 
-    // 重要文字只和重要文字互相避让；普通浮字完全不参与这里的碰撞。
     for (let attempt = 0; attempt < 10; attempt += 1) {
       label.setPosition(x, targetY);
       const collision = this.activeLabels.find((other) => {
@@ -248,9 +232,6 @@ export default class ImportantTextManager {
     const label = record.label;
     let targetY = y;
 
-    // 动态跟随时仍只与其它“重要文字”互相避让。
-    // 优先级更高的文字保持主位置；同优先级时较早出现的文字保持主位置，
-    // 后来的文字向上让位，避免两个跟随标签互相推挤造成抖动。
     const blockers = [...this.activeBySource.values()]
       .filter((other) => (
         other !== record
@@ -294,8 +275,6 @@ export default class ImportantTextManager {
 
       record.followElapsedMs = (record.followElapsedMs ?? 0) + dt;
 
-      // 技能提示立即出现，但缩放脉冲始终读取全局 120 BPM BeatClock。
-      // 因此提示不会为了等拍而延迟，视觉强调却会跟音乐拍点同步。
       if (record.beatSynced) {
         const beatMs = Math.max(1, record.beatMs ?? 500);
         const clock = this.scene.adaptiveMusic?.getClockMs?.() ?? record.followElapsedMs;
@@ -318,8 +297,6 @@ export default class ImportantTextManager {
         - record.yOffset
         - record.driftY * progress;
 
-      // 「无尽癫狂」等抖动台词也由跟随器自己叠加轻微横向抖动，
-      // 避免 x tween 与角色跟随争抢同一个属性。
       if (record.shake) {
         targetX += Math.sin(record.followElapsedMs * 0.055) * 4;
       }
@@ -328,8 +305,6 @@ export default class ImportantTextManager {
       const lagMs = Math.max(80, record.followLagMs ?? this.defaultFollowLagMs);
       let followAlpha = 1 - Math.exp(-dt / lagMs);
 
-      // 角色瞬移/高速位移时允许更快追上，避免台词拖到半个屏幕之外；
-      // 普通移动时仍保留约 100–180ms 的“慢半拍”视觉惯性。
       const distance = Phaser.Math.Distance.Between(
         record.label.x,
         record.label.y,

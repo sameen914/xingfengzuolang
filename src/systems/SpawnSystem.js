@@ -1,13 +1,13 @@
 import * as Phaser from 'phaser';
-import Potato from '../enemies/Potato.js';
-import Duck from '../enemies/Duck.js';
-import Ball from '../enemies/Ball.js';
-import Roach from '../enemies/Roach.js';
-import TwinPig from '../enemies/TwinPig.js';
-import PlagueCat from '../enemies/PlagueCat.js';
-import DuckQueen from '../enemies/DuckQueen.js';
-import PotatoCommander from '../enemies/PotatoCommander.js';
-import { GAME, SPAWN, RELEASE } from '../config/gameConfig.js';
+import Potato from '../enemies/Potato.js?v=2.0.0';
+import Duck from '../enemies/Duck.js?v=2.0.0';
+import Ball from '../enemies/Ball.js?v=2.0.0';
+import Roach from '../enemies/Roach.js?v=2.0.0';
+import TwinPig from '../enemies/TwinPig.js?v=2.0.0';
+import PlagueCat from '../enemies/PlagueCat.js?v=2.0.0';
+import DuckQueen from '../enemies/DuckQueen.js?v=2.0.0';
+import PotatoCommander from '../enemies/PotatoCommander.js?v=2.0.0';
+import { GAME, SPAWN, RELEASE } from '../config/gameConfig.js?v=2.0.0';
 
 export default class SpawnSystem {
   constructor(scene, enemyGroup) {
@@ -23,11 +23,8 @@ export default class SpawnSystem {
     this.potatoCommanderSpawned = false;
     this.nextVisibleRefillAt = 0;
 
-    // 「土豆压场」额外非土豆刷新信用：只补鸭 / 紫蟑螂，不加速土豆自身。
     this.potatoPressureCredit = 0;
-    this.lastPotatoPressureDebugAt = -Infinity;
 
-    // 0.9.2-dev02：前期显式节奏节点提前。
     this.earlyRoachPairSpawned = false;
     this.earlyWaveSpawned = false;
     this.earlyPotatoIntroSpawned = false;
@@ -47,8 +44,6 @@ export default class SpawnSystem {
       this.spawnDuckQueen();
     }
 
-    // Internal Test v1.0 ends at 丹麦鸭. 土豆指挥官保留完整代码和 DEBUG 入口，
-    // 但正式流程不自动生成，后续测试版只需要打开 release flag 即可恢复。
     if (
       potatoCommanderPublished
       && elapsedSeconds >= SPAWN.POTATO_COMMANDER_SPAWN_SECONDS
@@ -58,10 +53,8 @@ export default class SpawnSystem {
       this.spawnPotatoCommander();
     }
 
-    // 「圣裁」清屏后留出短暂呼吸窗口；Boss 自身仍然存在，但普通怪 / 精英 / 足球暂缓补入。
     if (time < (this.scene.spawnSuppressedUntil ?? -Infinity)) return;
 
-    // Boss 在场时暂停新的精英刷新，普通怪继续刷。
     if (!this.scene.bossActive) {
       if (
         elapsedSeconds >= SPAWN.TWIN_PIG_START_SECONDS
@@ -78,18 +71,10 @@ export default class SpawnSystem {
 
     this.updateEarlyPacing(elapsedSeconds);
 
-    // 足球组合技在普通怪保底补位之前处理：这样已到点的 combo shot
-    // 不会被同一帧的普通怪 refill 抢掉最后一个全局名额。每颗球仍会
-    // 自己检查 MAX_BALLS / MAX_ALIVE；达到上限时该颗直接跳过，不补发。
-    // 保持原来的 6.5–9.5 秒「一轮」频率，但随着时间推进，
-    // 每轮会变成 1 / 2 / 3 颗连发。后续球每隔 1 秒生成一次，
-    // spawnBall() 与 Ball 构造函数都会在各自生成瞬间重新读取主角位置，
-    // 因此每一颗都会重新瞄准，而不是沿用第一颗的旧方向。
     this.updateBallVolley(time, elapsedSeconds);
 
     if (this.enemyGroup.countActive(true) >= SPAWN.MAX_ALIVE) return;
 
-    // 镜头内普通小怪保底：不足时从当前画面边缘快速补齐。
     this.updateVisibleCommonRefill(time, elapsedSeconds);
 
     if (time < this.nextSpawnAt) return;
@@ -101,8 +86,6 @@ export default class SpawnSystem {
       progress
     );
 
-    // 「土豆指挥官」登场后进入土豆主场：
-    // 普通刷新更快，且土豆比例明显高于鸭子。
     const profile = this.getVisibleSpawnProfile(elapsedSeconds);
     const visibleCommon = this.countVisibleCommonEnemies();
 
@@ -111,18 +94,13 @@ export default class SpawnSystem {
       : baseInterval;
     interval *= Number(this.scene.difficultyProfile?.spawnIntervalMultiplier) || 1;
 
-    // 达到当前阶段的软上限后，暂缓继续刷怪；
-    // 不删除现有怪物，只把下一次刷新往后推。
     if (visibleCommon >= profile.softMax) {
       this.nextSpawnAt = time + interval * 1.55;
       return;
     }
 
-    // 每个主刷新节拍只生成 1 只，避免突然成批增加。
     this.spawnByType(this.chooseType(elapsedSeconds));
 
-    // 「土豆压场」只额外增加鸭子 / 紫蟑螂，不增加土豆自身。
-    // Final Boss 期间关闭，由土豆指挥官自己的生态规则接管。
     this.updatePotatoPressureSpawn(
       time,
       elapsedSeconds,
@@ -136,7 +114,6 @@ export default class SpawnSystem {
     const profile =
       this.getVisibleSpawnProfile(elapsedSeconds);
 
-    // 约 30 秒保证第一次看到成对紫蟑螂。
     if (
       !this.earlyRoachPairSpawned
       && elapsedSeconds >= SPAWN.EARLY_ROACH_PAIR_SECONDS
@@ -151,7 +128,6 @@ export default class SpawnSystem {
       }
     }
 
-    // 约 45 秒第一次小波：鸭 + 一对蟑螂。
     if (
       !this.earlyWaveSpawned
       && elapsedSeconds >= SPAWN.EARLY_WAVE_SECONDS
@@ -172,7 +148,6 @@ export default class SpawnSystem {
       });
     }
 
-    // 第一只土豆作为前期的第一次「坦克题」。
     if (
       !this.earlyPotatoIntroSpawned
       && elapsedSeconds >= SPAWN.EARLY_POTATO_INTRO_SECONDS
@@ -228,7 +203,6 @@ export default class SpawnSystem {
     );
 
     const second = new Roach(this.scene, x2, y2);
-    // 刚刷出的两只稍微同步一点，形成「一起来的」视觉。
     second.zigzagSeed = first.zigzagSeed
       + Phaser.Math.FloatBetween(-0.24, 0.24);
     this.enemyGroup.add(second);
@@ -263,7 +237,6 @@ export default class SpawnSystem {
   }
 
   choosePressureType(elapsedSeconds) {
-    // 足球由独立低频系统控制；压场只积累鸭 / 紫蟑螂。
     if (elapsedSeconds < SPAWN.ROACH_START_SECONDS) return 'duck';
 
     if (this.countType('roach') >= SPAWN.MAX_ROACHES) {
@@ -281,7 +254,6 @@ export default class SpawnSystem {
       return;
     }
 
-    // 每次正常刷新节拍累积 6%~24% 的额外非土豆刷新信用。
     this.potatoPressureCredit += pressure;
 
     const visible = this.countVisibleCommonEnemies();
@@ -295,20 +267,6 @@ export default class SpawnSystem {
         this.choosePressureType(elapsedSeconds)
       );
       this.potatoPressureCredit -= 1;
-    }
-
-    if (
-      time - this.lastPotatoPressureDebugAt
-      >= SPAWN.POTATO_PRESSURE_DEBUG_INTERVAL_MS
-    ) {
-      this.lastPotatoPressureDebugAt = time;
-      console.debug(
-        '[potato-pressure]',
-        `alive=${this.getAlivePotatoCount()}`,
-        `bonus=${Math.round(pressure * 100)}%`,
-        `visible=${visible}/${profile.softMax}`,
-        `credit=${this.potatoPressureCredit.toFixed(2)}`
-      );
     }
   }
 
@@ -404,15 +362,12 @@ export default class SpawnSystem {
 
       const type = this.chooseType(elapsedSeconds);
 
-      // 足球仍由独立低频刷新控制，保底只补普通追踪怪。
       this.spawnCommonAtViewEdge(type === 'ball' ? 'duck' : type);
     }
   }
 
   spawnSingleRoachAtViewEdge(options = {}) {
     const forceForQueenCandy = options.forceForQueenCandy === true;
-    // 女王鸭撒糖需要按每颗糖补足紫蟑螂。只在这个显式技能调用里允许越过普通紫蟑螂上限，
-    // 但仍尊重全场 MAX_ALIVE 安全上限，避免无限增长。
     if (!forceForQueenCandy && this.countType('roach') >= SPAWN.MAX_ROACHES) return null;
     if (this.enemyGroup.countActive(true) >= SPAWN.MAX_ALIVE) return null;
 
@@ -505,7 +460,8 @@ export default class SpawnSystem {
     if (this.countType('twinPig') >= SPAWN.MAX_TWIN_PIGS) return;
 
     this.spawnElite('twinPig');
-    this.nextTwinPigAt = time + Phaser.Math.Between(52000, 68000);
+    const eliteIntervalScale = Number(this.scene.difficultyProfile?.eliteSpawnIntervalMultiplier) || 1;
+    this.nextTwinPigAt = time + Math.round(Phaser.Math.Between(52000, 68000) * eliteIntervalScale);
   }
 
   updatePlagueCatSpawns(time) {
@@ -514,26 +470,24 @@ export default class SpawnSystem {
     if (this.countType('plagueCat') >= SPAWN.MAX_PLAGUE_CATS) return;
 
     this.spawnElite('plagueCat');
-    this.nextPlagueCatAt = time + Phaser.Math.Between(58000, 76000);
+    const eliteIntervalScale = Number(this.scene.difficultyProfile?.eliteSpawnIntervalMultiplier) || 1;
+    this.nextPlagueCatAt = time + Math.round(Phaser.Math.Between(58000, 76000) * eliteIntervalScale);
   }
 
   chooseType(elapsedSeconds) {
     const roll = Math.random();
 
     if (this.scene.potatoCommander?.active) {
-      // Final Boss 战：土豆 > 紫蟑螂 > 鸭子，足球仍走独立低频刷新。
       if (roll < 0.54) return 'potato';
       if (roll < 0.82) return 'roach';
       return 'duck';
     }
 
-    // 出场顺序：鸭子 → 紫蟑螂 → 土豆 → 足球（足球走独立刷新）。
     if (elapsedSeconds < SPAWN.ROACH_START_SECONDS) {
       return 'duck';
     }
 
     if (elapsedSeconds < SPAWN.POTATO_START_SECONDS) {
-      // 蟑螂一登场就占较高比例，配合繁殖逐渐成为数量最多的类型。
       return roll < 0.58 ? 'roach' : 'duck';
     }
 
@@ -543,7 +497,6 @@ export default class SpawnSystem {
       return 'duck';
     }
 
-    // 中后期：蟑螂基础刷新权重最高；土豆与鸭子接近；足球始终最少。
     if (roll < 0.48) return 'roach';
     if (roll < 0.75) return 'potato';
     return 'duck';
@@ -574,20 +527,8 @@ export default class SpawnSystem {
     return enemy;
   }
 
-  spawnElite(type, options = {}) {
+  spawnElite(type) {
     let { x, y } = this.getSpawnPoint();
-
-    if (options.debugNear) {
-      const boss = this.scene.duckQueen?.active
-        ? this.scene.duckQueen
-        : (this.scene.potatoCommander?.active ? this.scene.potatoCommander : null);
-      const anchor = boss ?? this.scene.player;
-      if (anchor?.active) {
-        const offsetX = boss ? 145 : 170;
-        x = Phaser.Math.Clamp(anchor.x + offsetX, 70, GAME.WORLD_WIDTH - 70);
-        y = Phaser.Math.Clamp(anchor.y + 20, 70, GAME.WORLD_HEIGHT - 70);
-      }
-    }
 
     let enemy;
     if (type === 'twinPig') enemy = new TwinPig(this.scene, x, y);
@@ -611,7 +552,6 @@ export default class SpawnSystem {
   }
 
   trySpawnBallVolleyShot() {
-    // 这一颗如果碰到同屏上限就直接跳过，不排队补发，避免之后突然倾泻。
     if (this.countType('ball') >= SPAWN.MAX_BALLS) return false;
     if (this.enemyGroup.countActive(true) >= SPAWN.MAX_ALIVE) return false;
     if (this.countVisibleCommonEnemies() >= SPAWN.VISIBLE_HARD_CAP) return false;
@@ -623,15 +563,12 @@ export default class SpawnSystem {
   startBallVolley(time, elapsedSeconds) {
     const volleySize = this.getBallVolleySize(elapsedSeconds);
 
-    // 第一颗立即发射；后续每颗由 updateBallVolley() 按 1 秒间隔触发。
     this.trySpawnBallVolleyShot();
     this.pendingBallVolleyShots = Math.max(0, volleySize - 1);
     this.nextBallVolleyShotAt = this.pendingBallVolleyShots > 0
       ? time + SPAWN.BALL_VOLLEY_SHOT_INTERVAL_MS
       : null;
 
-    // 保持原有足球事件频率：这里记录的是下一「轮」开始时间，
-    // 而不是把每颗连发球都当成一次新的独立刷新。
     this.nextBallAt = time + Phaser.Math.Between(6500, 9500);
   }
 
@@ -641,9 +578,6 @@ export default class SpawnSystem {
     if (this.pendingBallVolleyShots > 0) {
       if (time < this.nextBallVolleyShotAt) return;
 
-      // 无论这一颗是否因同屏上限被跳过，都消耗本轮的一个 shot。
-      // 若升级选择等流程让 scene time 前进，恢复后也只发一颗，
-      // 下一颗重新从当前时刻 +1 秒计时，避免瞬间补发多颗。
       this.trySpawnBallVolleyShot();
       this.pendingBallVolleyShots -= 1;
       this.nextBallVolleyShotAt = this.pendingBallVolleyShots > 0
@@ -663,8 +597,6 @@ export default class SpawnSystem {
     const margin = 35;
     let x; let y;
 
-    // 保留从四个方向随机入场，但避免出生点与主角完全水平/垂直对齐，
-    // 这样每颗球都会以清晰不同的斜角朝主角砸入。
     const signedOffset = (minAbs, maxAbs) => {
       const magnitude = Phaser.Math.Between(minAbs, maxAbs);
       return Math.random() < 0.5 ? -magnitude : magnitude;
@@ -726,7 +658,6 @@ export default class SpawnSystem {
     if (this.enemyGroup.countActive(true) >= SPAWN.MAX_ALIVE) return false;
     if (this.countVisibleCommonEnemies() >= SPAWN.VISIBLE_HARD_CAP) return false;
 
-    // 繁殖前提：附近确实存在另一只活蟑螂。
     let partner = null;
     let partnerDistance = Infinity;
 
@@ -753,7 +684,6 @@ export default class SpawnSystem {
 
     if (!partner) return false;
 
-    // 两只凑在一起只是「有概率」繁殖，不是必定。
     const sugarBoost =
       parent.hasEffectiveStatus?.('sugar_high')
       || partner.hasEffectiveStatus?.('sugar_high');
@@ -782,7 +712,6 @@ export default class SpawnSystem {
 
     this.enemyGroup.add(child);
 
-    // 防止同一对蟑螂紧接着被两边 timer 连续触发两胎。
     partner.nextReproduceAt = Math.max(
       partner.nextReproduceAt,
       this.scene.time.now + Phaser.Math.Between(4200, 6200)
@@ -808,24 +737,11 @@ export default class SpawnSystem {
     return true;
   }
 
-  spawnDuckQueen(options = {}) {
-    const force = options.force === true;
-    const debug = options.debug === true;
-
+  spawnDuckQueen() {
     if (this.scene.duckQueen?.active) return this.scene.duckQueen;
-    if (this.duckQueenSpawned && !force) return null;
+    if (this.duckQueenSpawned) return null;
 
-    let point;
-    if (debug) {
-      // 调试召唤固定生成在玩家附近、当前镜头容易看到的位置。
-      const player = this.scene.player;
-      point = {
-        x: Phaser.Math.Clamp(player.x + 330, 40, GAME.WORLD_WIDTH - 40),
-        y: Phaser.Math.Clamp(player.y - 80, 40, GAME.WORLD_HEIGHT - 40)
-      };
-    } else {
-      point = this.getSpawnPoint();
-    }
+    const point = this.getSpawnPoint();
 
     const queen = new DuckQueen(this.scene, point.x, point.y);
     this.enemyGroup.add(queen);
@@ -835,36 +751,12 @@ export default class SpawnSystem {
     return queen;
   }
 
-  spawnPotatoCommander(options = {}) {
-    const force = options.force === true;
-    const debug = options.debug === true;
+  spawnPotatoCommander() {
+    if (this.scene.potatoCommander?.active) return this.scene.potatoCommander;
+    if (this.potatoCommanderSpawned) return null;
+    if (this.scene.bossActive) return null;
 
-    if (this.scene.potatoCommander?.active) {
-      return this.scene.potatoCommander;
-    }
-
-    if (this.potatoCommanderSpawned && !force) return null;
-    if (this.scene.bossActive && !force) return null;
-
-    let point;
-
-    if (debug) {
-      const player = this.scene.player;
-      point = {
-        x: Phaser.Math.Clamp(
-          player.x + 360,
-          50,
-          GAME.WORLD_WIDTH - 50
-        ),
-        y: Phaser.Math.Clamp(
-          player.y + 40,
-          50,
-          GAME.WORLD_HEIGHT - 50
-        )
-      };
-    } else {
-      point = this.getSpawnPoint();
-    }
+    const point = this.getSpawnPoint();
 
     const commander = new PotatoCommander(
       this.scene,

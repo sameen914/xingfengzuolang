@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES } from '../config/gameConfig.js?v=2.0.0';
 
 const DUCK_QUEEN_STAGE_NAMES = {
   gentle: '天降青梅',
@@ -39,7 +39,6 @@ export default class DuckQueen extends EnemyBase {
     this.disableHitScale = true;
     this.setTarget(scene.player);
     this.setDepth(12);
-    // 与土豆指挥官保持同一显示坐标体系：角色坐标位于 PNG 中心。
     this.setOrigin(0.5, 0.5);
     this.visualState = null;
 
@@ -58,20 +57,15 @@ export default class DuckQueen extends EnemyBase {
     this.nextFishSkillAt = scene.time.now + 5200;
     this.fishRushUntil = -Infinity;
 
-    // 普通攻击「扔橘柑」：三阶段共用的低阶物理骚扰攻击。
     this.nextTangerineAt = scene.time.now + Phaser.Math.Between(1500, 2300);
     this.tangerineCastUntil = -Infinity;
 
-    // 阶段技能「发糖」：一阶段解锁，后二阶段继续保留且糖量递增。
     this.nextCandyAt = scene.time.now + Phaser.Math.Between(2600, 3400);
     this.candyCastUntil = -Infinity;
 
-    // 二阶段解锁、三阶段继承：「蛊惑」。
     this.nextCharmAt = scene.time.now + 4300;
     this.charmCastUntil = -Infinity;
 
-    // 主技能调度器：单技能为主，combo 由 AI 预先选定。
-    // 技能本身互不硬调用，combo 每一步都要重新检查当前条件。
     this.majorActionCooldownUntil = scene.time.now + (base.majorActionInitialCooldownMs ?? 1600);
     this.majorActionPlan = null;
     this.activeMajorSkill = null;
@@ -79,14 +73,11 @@ export default class DuckQueen extends EnemyBase {
     this.activeMajorSkillDeadline = -Infinity;
     this.stickActionAuthorizedUntil = -Infinity;
 
-    this.debugForcedPhase = null;
     this.currentPhase = this.getPhase();
-    // 「大发卖」与普通 single/combo 调度分离，使用独立长 CD。
     this.ultimateCooldownUntil = scene.time.now + (base.ultimatePhaseEntryDelayMs ?? 5200);
     this.nextFrenzyMoodSwapAt = scene.time.now + Phaser.Math.Between(280, 520);
     this.frenzyMoodState = 's3_mood_normal';
     this.postGrappleRoamUntil = -Infinity;
-    // 连续游走方向缓存：当 Boss 与主角中心几乎完全重合时，用它脱离零向量死区。
     this.lastCruiseDirection = new Phaser.Math.Vector2(1, 0);
     this.applyPhaseVisual();
   }
@@ -139,13 +130,10 @@ export default class DuckQueen extends EnemyBase {
       if (this.scene.textures.exists(visual.key)) this.setTexture(visual.key);
     }
 
-    // 完全沿用土豆指挥官的显示规则：固定显示高度，按锁定 PNG 原始宽高比计算宽度。
-    // 切 normal / 撒糖 / 贴贴 / 三阶段情绪时，不再给每张图手写不同 size。
     const display = this.getVisualDisplaySize(state);
     this.setOrigin(0.5, 0.5);
     this.setDisplaySize(display.width, display.height);
 
-    // 技能图再宽也不改变实际碰撞脚印。
     if (this.body) {
       const sx = Math.max(0.001, Math.abs(this.scaleX));
       const sy = Math.max(0.001, Math.abs(this.scaleY));
@@ -166,8 +154,6 @@ export default class DuckQueen extends EnemyBase {
   resumeRoamingState(time = this.scene.time.now) {
     if (!this.active || this.isDead) return;
 
-    // 贴贴 / 吸血退出不是只换图：显式清空所有可能继续让 AI 提前 return 的旧状态，
-    // 并给一小段强制 roaming 窗口，保证从 grapple 物理锁定真正回到自由移动。
     this.stickDashUntil = -Infinity;
     this.fishRushUntil = -Infinity;
     this.attachAttemptUntil = -Infinity;
@@ -186,58 +172,13 @@ export default class DuckQueen extends EnemyBase {
     this.applyCruiseMotion(time, phase, 1.08);
 
     if (phase === 'frenzy') {
-      // 三阶段先回 normal，短暂停留后再恢复四张情绪图的疯癫轮换。
       this.frenzyMoodState = 's3_mood_normal';
       this.nextFrenzyMoodSwapAt = time + Phaser.Math.Between(320, 520);
     }
   }
 
 
-  forceDebugPhase(phase, time = this.scene.time.now) {
-    if (!this.active || this.isDead) return false;
-
-    this.debugForcedPhase = phase;
-    this.currentPhase = phase;
-
-    // A debug phase jump is an inspection command: cancel every transient action that can
-    // hold velocity at zero or keep the previous phase's pose alive.
-    this.stickDashUntil = -Infinity;
-    this.fishRushUntil = -Infinity;
-    this.attachAttemptUntil = -Infinity;
-    this.candyCastUntil = -Infinity;
-    this.tangerineCastUntil = -Infinity;
-    this.charmCastUntil = -Infinity;
-    this.postGrappleRoamUntil = time + 700;
-    this.stunnedUntil = time;
-    this.grappleCooldownUntil = Math.max(this.grappleCooldownUntil ?? -Infinity, time + 1100);
-    this.nextStickDashAt = time + 1100;
-    this.nextFishSkillAt = time + 1350;
-    this.nextCandyAt = time + 650;
-    this.nextCharmAt = phase === 'gentle' ? Infinity : time + 1150;
-    this.nextTangerineAt = time + 900;
-    this.resetMajorActionScheduler(time, 900);
-
-    if (this.body) {
-      this.body.setEnable(true);
-      this.body.moves = true;
-    }
-    this.setTarget(this.scene.player);
-
-    if (phase === 'frenzy') {
-      this.frenzyMoodState = 's3_mood_normal';
-      this.nextFrenzyMoodSwapAt = time + Phaser.Math.Between(300, 520);
-      this.ultimateCooldownUntil = time + (ENEMIES.duckQueen.ultimatePhaseEntryDelayMs ?? 5200);
-    }
-
-    this.applyVisualState(this.getPhaseVisualState(phase));
-    this.applyCruiseMotion(time, phase, 1);
-    return true;
-  }
-
-
   getFrenzyMoodStates() {
-    // Only the four locked expression assets belong to the roaming mood loop.
-    // Candy / tietie / black-frame / dafa are skill poses and must never leak into this pool.
     return ['s3_mood_normal', 's3_mood_cold', 's3_mood_furious', 's3_mood_crying'];
   }
 
@@ -276,7 +217,6 @@ export default class DuckQueen extends EnemyBase {
   }
 
   getPhase() {
-    if (this.debugForcedPhase) return this.debugForcedPhase;
     const ratio = this.getVitalityRatio();
 
     if (ratio > ENEMIES.duckQueen.gentleThreshold) return 'gentle';
@@ -290,14 +230,12 @@ export default class DuckQueen extends EnemyBase {
 
 
   getTangerineCooldownMs(phase = this.getPhase()) {
-    // 普通攻击只做轻量节奏差异，不随阶段升级成高阶技能。
     if (phase === 'frenzy') return Phaser.Math.Between(2300, 2900);
     if (phase === 'obsessed') return Phaser.Math.Between(2500, 3100);
     return Phaser.Math.Between(2700, 3300);
   }
 
   getTangerineCount(phase = this.getPhase()) {
-    // 每升一阶段多扔一个橘柑：1 / 2 / 3。
     if (phase === 'frenzy') return 3;
     if (phase === 'obsessed') return 2;
     return 1;
@@ -308,7 +246,6 @@ export default class DuckQueen extends EnemyBase {
   }
 
   getCandyCount(phase = this.getPhase()) {
-    // 发糖数量随阶段明显增长：1阶段 2-3、2阶段 3-5、3阶段 5-8。
     if (phase === 'frenzy') return Phaser.Math.Between(5, 8);
     if (phase === 'obsessed') return Phaser.Math.Between(3, 5);
     return Phaser.Math.Between(2, 3);
@@ -339,7 +276,6 @@ export default class DuckQueen extends EnemyBase {
   applyCruiseMotion(time = this.scene.time.now, phase = this.getPhase(), speedScale = 1) {
     if (!this.target?.active) return;
 
-    // 女王鸭是持续游走 Boss。除明确 grapple 硬锁外，每次巡航都自愈 Arcade body 的移动状态。
     if (this.body) {
       if (!this.body.enable) this.body.setEnable(true);
       this.body.moves = true;
@@ -350,9 +286,6 @@ export default class DuckQueen extends EnemyBase {
     const rawDistance = Math.hypot(dx, dy);
     const distance = Math.max(0.001, rawDistance);
 
-    // 旧逻辑在女王鸭与主角中心几乎重合时会得到 toward=(0,0)，
-    // 继而 tangent 也是 (0,0)，最终把速度永久写成 0。
-    // 这里复用最近一次有效巡航方向作为脱困轴；若还没有，则使用稳定的时间角度。
     let toward;
     if (rawDistance <= 2.5) {
       if (this.lastCruiseDirection?.lengthSq?.() > 0.01) {
@@ -367,8 +300,6 @@ export default class DuckQueen extends EnemyBase {
     }
     const tangent = new Phaser.Math.Vector2(-toward.y, toward.x);
 
-    // 女王鸭不是站桩 Boss。三个阶段都保持“靠近 / 环绕 / 拉开”的持续游走。
-    // 阶段越高，理想环绕距离越近，但正常 AI 下不应因为进入 preferredDistance 就归零速度。
     const desiredRadius = phase === 'frenzy' ? 104 : phase === 'obsessed' ? 122 : 148;
     const baseMultiplier = phase === 'frenzy'
       ? ENEMIES.duckQueen.frenzySpeedMultiplier
@@ -382,16 +313,13 @@ export default class DuckQueen extends EnemyBase {
     let vy;
 
     if (distance < desiredRadius * 0.78) {
-      // 太近：一边后撤一边侧移，避免贴脸后站住。
       vx = -toward.x * speed * 0.72 + tangent.x * speed * 0.54 * orbitSign;
       vy = -toward.y * speed * 0.72 + tangent.y * speed * 0.54 * orbitSign;
     } else if (distance <= desiredRadius * 1.22) {
-      // 合理距离：持续绕圈，并用少量径向修正维持环绕半径。
       const radial = Phaser.Math.Clamp((distance - desiredRadius) / desiredRadius, -0.35, 0.35);
       vx = tangent.x * speed * 0.78 * orbitSign + toward.x * speed * radial * 0.8;
       vy = tangent.y * speed * 0.78 * orbitSign + toward.y * speed * radial * 0.8;
     } else {
-      // 太远：带侧向摆动靠近。
       const side = Math.sin(time * (phase === 'frenzy' ? 0.010 : 0.0045)) * (phase === 'frenzy' ? 0.32 : 0.22);
       vx = (toward.x - toward.y * side) * speed;
       vy = (toward.y + toward.x * side) * speed;
@@ -405,7 +333,6 @@ export default class DuckQueen extends EnemyBase {
 
   ensureContinuousMotion(time = this.scene.time.now) {
     if (!this.active || this.isDead || !this.target?.active) return;
-    // 终极技是明确的站桩演出；不能让“防卡死”巡航 watchdog 把速度重新补回来。
     if (this.scene?.duckQueenUltimateActive) {
       this.setVelocity(0, 0);
       return;
@@ -438,60 +365,6 @@ export default class DuckQueen extends EnemyBase {
     this.activeMajorSkillDeadline = -Infinity;
     this.stickActionAuthorizedUntil = -Infinity;
     this.majorActionCooldownUntil = time + Math.max(0, cooldownMs);
-  }
-
-  debugQueueMajorAction(steps, time = this.scene.time.now, {
-    ignoreCooldown = false,
-    name = 'debug'
-  } = {}) {
-    if (!Array.isArray(steps) || !steps.length || !this.active || this.isDead) return false;
-    if (
-      this.scene.duckQueenGrappleActive
-      || this.scene.duckQueenFishNetActive
-      || this.scene.duckQueenCharmSpell
-    ) return false;
-    if (!ignoreCooldown && time < this.majorActionCooldownUntil) return false;
-
-    const phase = this.getPhase();
-    if (phase === 'gentle' && steps.some((skill) => ['charm', 'fish', 'stick'].includes(skill))) {
-      return false;
-    }
-
-    if (ignoreCooldown) {
-      this.majorActionCooldownUntil = time;
-      if (steps.includes('candy')) this.nextCandyAt = Math.min(this.nextCandyAt ?? time, time);
-      if (steps.includes('charm')) this.nextCharmAt = Math.min(this.nextCharmAt ?? time, time);
-      if (steps.includes('fish')) this.nextFishSkillAt = Math.min(this.nextFishSkillAt ?? time, time);
-      if (steps.includes('stick')) {
-        this.nextStickDashAt = Math.min(this.nextStickDashAt ?? time, time);
-        this.grappleCooldownUntil = Math.min(this.grappleCooldownUntil ?? time, time);
-      }
-    }
-
-    this.majorActionPlan = {
-      kind: steps.length > 1 ? 'combo' : 'single',
-      name,
-      steps: steps.slice(),
-      index: 0,
-      waitingUntil: time
-    };
-    this.activeMajorSkill = null;
-    this.activeMajorSkillStartedAt = -Infinity;
-    this.activeMajorSkillDeadline = -Infinity;
-    this.stickActionAuthorizedUntil = -Infinity;
-
-    const distance = Phaser.Math.Distance.Between(
-      this.x,
-      this.y,
-      this.target?.x ?? this.x,
-      this.target?.y ?? this.y
-    );
-
-    if (!this.executeMajorSkill(this.majorActionPlan.steps[0], time, phase, distance)) {
-      this.majorActionPlan = null;
-      return false;
-    }
-    return true;
   }
 
   getMajorActionSingleSkills(time, phase, distance) {
@@ -788,7 +661,6 @@ export default class DuckQueen extends EnemyBase {
 
     const chance = Phaser.Math.Clamp(ENEMIES.duckQueen.ultimateRollChance ?? 0.18, 0, 1);
     if (Math.random() >= chance) {
-      // 判定失败后加一个独立 retry gap，避免没有可用主技能时逐帧反复抽签。
       this.ultimateCooldownUntil = time + (ENEMIES.duckQueen.ultimateRetryDelayMs ?? 2400);
       return false;
     }
@@ -824,7 +696,6 @@ export default class DuckQueen extends EnemyBase {
         this.nextCharmAt = time + 900;
       }
       if (phase === 'frenzy') {
-        // 刚进入三阶段先留出正常战斗窗口，不让终极技立刻盖住阶段切换。
         this.ultimateCooldownUntil = Math.max(
           this.ultimateCooldownUntil ?? -Infinity,
           time + (ENEMIES.duckQueen.ultimatePhaseEntryDelayMs ?? 5200)
@@ -832,7 +703,6 @@ export default class DuckQueen extends EnemyBase {
       }
     }
 
-    // 「黑框 → 大发卖」完整终极技期间，普通攻击 / combo / mood 轮换全部暂停。
     if (this.scene.duckQueenUltimateActive) {
       this.setVelocity(0, 0);
       return;
@@ -841,8 +711,6 @@ export default class DuckQueen extends EnemyBase {
     this.updateFrenzyMood(time);
 
     if (this.scene.duckQueenGrappleActive) {
-      // 一阶段本来没有「贴贴」。若 debug / 旧状态残留把 grapple flag 带回一阶段，
-      // 立即清理而不是让女王鸭永久进入零速度分支。
       if (phase === 'gentle') {
         this.scene.endDuckQueenGrapple?.(false);
         this.resumeRoamingState(time);
@@ -853,33 +721,26 @@ export default class DuckQueen extends EnemyBase {
     }
 
     if (this.scene.duckQueenFishNetActive) {
-      // 鱼网牵引期间女王鸭仍保持低速游走，不站桩，也不叠加其它主动技能。
       this.applyCruiseMotion(time, phase, 0.34);
       return;
     }
 
     if (this.scene.duckQueenCharmSpell) {
-      // 蛊惑是短前摇法术，不再发射实体投射物。施法期间低速游走，解析后立刻回到 AI。
       this.applyCruiseMotion(time, phase, 0.46);
       return;
     }
 
-    // 贴贴挣脱后的恢复窗口优先于普通 cast / stun 判断。
-    // 这是明确的 GRAPPLE -> RELEASE -> ROAMING 状态，而不是等后续 AI 偶然走到巡航分支。
     if (time < this.postGrappleRoamUntil) {
       this.applyCruiseMotion(time, phase, 1.08);
       return;
     }
 
     if (this.isStunned(time)) {
-      // 女王鸭是持续游走 Boss。普通电击/短 stun 只让她明显变慢，
-      // 不再像普通小怪一样完全站桩；真正的完全锁定只留给贴贴吸血等明确状态。
       this.applyCruiseMotion(time, phase, 0.20);
       return;
     }
 
     if (time < this.candyCastUntil || time < this.tangerineCastUntil || time < this.charmCastUntil) {
-      // 施法时减速游走，但不站桩。
       this.applyCruiseMotion(time, phase, 0.42);
       return;
     }
@@ -893,12 +754,8 @@ export default class DuckQueen extends EnemyBase {
       this.target.y
     );
 
-    // 三阶段先做一次独立的终极技判定。没有触发时才继续普通 single/combo 调度。
-    // 这样「大发卖」不会混进 combo plan，也不会被某个技能函数硬调用。
     if (this.tryStartUltimate(time, phase)) return;
 
-    // 主技能统一交给 AI 调度器：单技能为主；二、三阶段才可能出现
-    // 蛊惑→吃鱼、吃鱼→贴贴、蛊惑→吃鱼→贴贴三种 combo。
     const majorActionHandled = this.updateMajorActionScheduler(time, phase, distance);
 
     if (time < this.stickDashUntil) {
@@ -916,7 +773,6 @@ export default class DuckQueen extends EnemyBase {
     }
 
     if (majorActionHandled) {
-      // combo 内部等待期只允许游走，不再插入另一项主技能。
       this.applyCruiseMotion(time, phase, 0.92);
       return;
     }
@@ -926,7 +782,6 @@ export default class DuckQueen extends EnemyBase {
       this.tangerineCastUntil = time + 300;
       this.applyCruiseMotion(time, phase, 0.50);
 
-      // 普通攻击「扔橘柑」完全独立于「发糖 / 蛊惑」技能视觉。
       this.scene.throwDuckQueenTangerineVolley?.(this, phase, this.getTangerineCount(phase));
       return;
     }
@@ -939,7 +794,6 @@ export default class DuckQueen extends EnemyBase {
       this.applyPhaseVisual();
     }
 
-    // 正常状态下始终保持动态游走。只有真正 grapple / stun 才允许速度归零。
     this.applyCruiseMotion(time, phase, 1);
   }
 
@@ -980,10 +834,6 @@ export default class DuckQueen extends EnemyBase {
   }
 
   canAttachNow(time = this.scene.time.now, distance = Infinity) {
-    // 两种合法进入贴贴的方式：
-    // 1) 主角主动走进近身 attachDistance；
-    // 2) 女王鸭刚刚执行过贴贴冲刺，仍处于 attachAttempt 窗口。
-    // 旧版只允许第 2 种，因此玩家直接靠近时永远不会触发。
     return (
       this.isStickActionAuthorized(time)
       && time >= this.grappleCooldownUntil
@@ -1028,7 +878,6 @@ export default class DuckQueen extends EnemyBase {
 
     if (remaining > 0) this.hp -= remaining;
 
-    // 与土豆指挥官一致：受击反馈只改透明度，不碰锁定显示尺寸。
     this.scene.tweens.killTweensOf(this);
     this.setAlpha(0.48);
     this.scene.time.delayedCall(70, () => {

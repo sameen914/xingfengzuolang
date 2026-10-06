@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES } from '../config/gameConfig.js?v=2.0.0';
 
 export default class Roach extends EnemyBase {
   constructor(scene, x, y) {
@@ -22,8 +22,6 @@ export default class Roach extends EnemyBase {
     );
     this.queenCandyLure = null;
     this.queenCandyLuredUntil = -Infinity;
-    // 发糖联动的可视“嗑糖”尾段：到达糖点后 🍬 继续停留片刻，
-    // 避免刚碰到糖就瞬间消失，看不出真正吃到糖。
     this.queenCandyEatingUntil = -Infinity;
   }
 
@@ -85,7 +83,6 @@ export default class Roach extends EnemyBase {
 
       this.setVelocity(direction.x, direction.y);
 
-      // 俯视紫蟑螂：身体始终朝目标，靠微小摆动制造快速爬行感。
       const targetAngle = Phaser.Math.Angle.Between(
         this.x, this.y, combatTarget.x, combatTarget.y
       ) + Math.PI / 2;
@@ -101,8 +98,6 @@ export default class Roach extends EnemyBase {
       candyLureActive
       && Phaser.Math.Distance.Between(this.x, this.y, combatTarget.x, combatTarget.y) <= 26
     ) {
-      // 真正到达糖点后进入短暂“嗑糖”尾段。这里只延长视觉反馈，
-      // 不额外改写既有女王鸭 Aura 的数值平衡。
       this.queenCandyEatingUntil = Math.max(
         this.queenCandyEatingUntil ?? -Infinity,
         time + (this.scene.statusEffects?.sugarHighDurationMs ?? 1400)
@@ -130,9 +125,6 @@ export default class Roach extends EnemyBase {
 
     const sugarHigh = this.hasEffectiveStatus('sugar_high');
 
-    // 关键性能修复：
-    // 进入「嗑糖」不会重置当前这一胎的倒计时，避免几十只蟑螂被同步到 2~3 秒后一起繁殖。
-    // 只有在它真正完成一次繁殖后，才按当时是否「嗑糖」决定下一胎间隔。
     if (time >= this.nextReproduceAt) {
       const multiplier = sugarHigh
         ? this.scene.statusEffects.sugarHighReproductionIntervalMultiplier

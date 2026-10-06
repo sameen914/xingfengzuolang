@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { GAME, RELEASE, DIFFICULTY_PROFILES } from '../config/gameConfig.js';
+import { GAME, RELEASE, DIFFICULTY_PROFILES } from '../config/gameConfig.js?v=2.0.0';
 
 export default class StartScene extends Phaser.Scene {
   constructor() {
@@ -7,8 +7,6 @@ export default class StartScene extends Phaser.Scene {
   }
 
   preload() {
-    // v1.1.0：标题页直接复用正常游戏的 Combo BGM。
-    // 使用独立 key，避免标题页 Sound 与 GameScene 的 AdaptiveMusicSystem 共用实例。
     this.ensureBootLoadingOverlay({ hidden: false, copy: '正在加载标题资源…' });
     this.bindStartLoadingProgress();
     this.load.audio('menuGameplayMusic', 'assets/audio/adaptive/01_combo_smooth.wav');
@@ -23,7 +21,6 @@ export default class StartScene extends Phaser.Scene {
     bg.fillGradientStyle(0x0b1727, 0x10253a, 0x060b13, 0x091522, 1);
     bg.fillRect(0, 0, GAME.WIDTH, GAME.HEIGHT);
 
-    // 低调的舞台光，不抢难度选择本身。
     for (let i = 0; i < 8; i += 1) {
       const x = 100 + i * 112;
       bg.fillStyle(i % 2 === 0 ? 0x183a55 : 0x122c42, 0.16);
@@ -65,7 +62,6 @@ export default class StartScene extends Phaser.Scene {
 
     this.startMenuMusic();
 
-    // 浏览器若阻止自动播放，第一次用户手势后补启标题 BGM。
     this.input.once('pointerdown', () => this.startMenuMusic());
     this.input.keyboard.once('keydown', () => this.startMenuMusic());
 
@@ -168,11 +164,9 @@ export default class StartScene extends Phaser.Scene {
     this.sound?.unlock?.();
     this.registry.set('selectedDifficulty', profile.key);
     this.registry.set('launchedFromStartScene', true);
-    this.registry.set('internalTestAutoStart', true);
-    this.registry.set('internalTestForceTitle', false);
+    this.registry.set('autoStartRun', true);
+    this.registry.set('forceTitleGate', false);
 
-    // 先把加载页盖上，再真正启动 GameScene。这样即使大量 PNG / 音频需要加载，
-    // 玩家也始终看到明确的资源加载反馈，不会出现难度页消失后的空白档。
     this.showGameResourceLoading();
 
     const sound = this.menuGameplayMusic;
@@ -186,7 +180,6 @@ export default class StartScene extends Phaser.Scene {
       });
     }
 
-    // 给 DOM 一个绘制机会，确保加载页先显示，再切场景触发 GameScene.preload()。
     this.time.delayedCall(90, () => {
       this.scene.start('GameScene', { difficulty: profile.key });
     });
@@ -199,8 +192,6 @@ export default class StartScene extends Phaser.Scene {
       .setStrokeStyle(2, 0x5d7e9a, 0.72)
       .setInteractive({ useHandCursor: true });
 
-    // v1.1.2：中文字体再缩小一级，并显式增加 Text texture padding。
-    // 只移动 y 坐标不能解决部分浏览器 / 中文字体的 glyph 上下缘被裁问题，padding 才是根治。
     const label = this.add.text(x - 160, y - 2, profile.label, {
       fontSize: '18px',
       fontStyle: 'bold',

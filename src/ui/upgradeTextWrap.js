@@ -38,7 +38,6 @@ function splitLongClause(clause, maxUnits) {
   for (const token of atomicTokens(clause)) {
     const candidate = current + token;
     if (current && measureUpgradeTextUnits(candidate) > maxUnits) {
-      // Punctuation should finish the current line instead of starting a new one.
       if (BREAK_PUNCTUATION.has(token.trim())) {
         current += token;
         continue;
@@ -71,7 +70,6 @@ function rebalanceOrphanLines(lines, maxUnits) {
       const token = previousTokens.pop();
       moved = token + moved;
 
-      // Do not strand punctuation at the end of the previous line.
       const tail = previousTokens.at(-1)?.trim();
       if (tail && BREAK_PUNCTUATION.has(tail) && previousTokens.length > 1) {
         moved = previousTokens.pop() + moved;

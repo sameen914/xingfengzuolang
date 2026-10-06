@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import StartScene from './scenes/StartScene.js';
-import GameScene from './scenes/GameScene.js';
+import StartScene from './scenes/StartScene.js?v=2.0.0';
+import GameScene from './scenes/GameScene.js?v=2.0.0';
 const isNativeAndroid = (() => {
   try {
     const platform = globalThis?.Capacitor?.getPlatform?.();

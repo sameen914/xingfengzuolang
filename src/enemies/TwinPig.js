@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import EnemyBase from './EnemyBase.js';
-import { ENEMIES } from '../config/gameConfig.js';
+import EnemyBase from './EnemyBase.js?v=2.0.0';
+import { ENEMIES } from '../config/gameConfig.js?v=2.0.0';
 
 const BEG_DISTANCE = 260;
 const BEG_FRAME_MS = 360;
@@ -18,11 +18,8 @@ const ELITE_VISUAL_SCALE = 1.18;
 const ELITE_COLLISION_SCALE = 1.10;
 
 const VISUALS = {
-  // 0.9.2-dev13.1：双子猪作为精英怪，视觉体型明确大于普通鸭子/土豆。
   normal: { key: 'twinPigsNormalArt', width: 128, height: 80, originY: 1 },
-  // 喷粪使用正式喷粪贴图。按透明内容而不是整张画布校准尺寸，避免角色缩小/后缩。
   poop: { key: 'twinPigsPoopArt', width: 172, height: 100, originY: 0.94 },
-  // 「泼脏水」是另一项主动技能，仍保持普通本体，只由 Phaser 粒子表现喷射。
   dirty: { key: 'twinPigsNormalArt', width: 128, height: 80, originY: 1 },
   beg01: { key: 'twinPigsBeg01Art', width: 128, height: 96, originY: 1 },
   beg02: { key: 'twinPigsBeg02Art', width: 128, height: 96, originY: 1 }
@@ -36,10 +33,8 @@ export default class TwinPig extends EnemyBase {
     this.setTarget(scene.player);
     this.setDepth(8);
     this.setOrigin(0.5, 1);
-    // 双子猪受击只闪烁，不使用 EnemyBase 默认的 squash / scale punch。
     this.disableHitScale = true;
 
-    // 「喷粪」是核心 Buff 技能，频率显著低于「泼脏水」。
     this.nextSprayAt = scene.time.now + SPRAY_INITIAL_DELAY_MS;
     this.nextDirtySplashAt = scene.time.now + DIRTY_SPLASH_INITIAL_DELAY_MS;
     this.sprayVisualUntil = -Infinity;
@@ -73,7 +68,6 @@ export default class TwinPig extends EnemyBase {
     }
 
     if (boss) {
-      // 狗腿模式：Boss 在附近时停止参与战斗，朝 Boss 反复跪拜。
       this.setVelocity(0, 0);
       this.setFlipX(boss.x < this.x);
 
@@ -99,7 +93,6 @@ export default class TwinPig extends EnemyBase {
     this.setFlipX(player.x < this.x);
     const distance = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
 
-    // 主动技能「泼脏水」：低伤害，主要作用是把 💩 污染区主动铺到主角附近。
     if (
       time >= this.nextDirtySplashAt
       && time >= this.sprayVisualUntil
@@ -130,7 +123,6 @@ export default class TwinPig extends EnemyBase {
     this.actionVisualState = 'normal';
     this.applyVisualState('normal');
 
-    // 双子猪是后排辅助精英：只缓慢保持在主角外围，不再无脑贴脸追击。
     const direction = new Phaser.Math.Vector2(player.x - this.x, player.y - this.y);
     if (direction.lengthSq() <= 1) {
       this.setVelocity(0, 0);
@@ -179,7 +171,6 @@ export default class TwinPig extends EnemyBase {
     this.setOrigin(0.5, visual.originY ?? 1);
     this.setDisplaySize(visual.width * ELITE_VISUAL_SCALE, visual.height * ELITE_VISUAL_SCALE);
 
-    // 保持碰撞体稳定，不让状态切图改变接触范围。
     if (this.body) {
       const sx = Math.max(0.001, Math.abs(this.scaleX));
       const sy = Math.max(0.001, Math.abs(this.scaleY));
@@ -189,7 +180,6 @@ export default class TwinPig extends EnemyBase {
 
 
   emitPoopInfectionParticles() {
-    // 喷粪同时从双子猪周身向外炸开棕色污染粒子，让“感染附近小怪”有明确传播感。
     const count = 18;
     for (let i = 0; i < count; i += 1) {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);

@@ -1,9 +1,9 @@
-import { PLAYER } from '../config/gameConfig.js';
+import { PLAYER } from '../config/gameConfig.js?v=2.0.0';
 
 const BPM = 120;
-const QUARTER_MS = 60000 / BPM; // 500 ms
-const EIGHTH_MS = QUARTER_MS / 2; // 250 ms
-const BAR_MS = QUARTER_MS * 4; // 2000 ms
+const QUARTER_MS = 60000 / BPM;
+const EIGHTH_MS = QUARTER_MS / 2;
+const BAR_MS = QUARTER_MS * 4;
 
 const TRACKS = {
   combo: { key: 'musicCombo', volume: 0.43, loop: true, priority: 10 },
@@ -19,13 +19,6 @@ const HEALTH_MUSIC = {
   CRITICAL_EXIT: 0.35
 };
 
-/**
- * Prototype 0.9.0 adaptive BGM controller.
- *
- * Important design rule: game rhythm owns the clock; individual audio files do not.
- * All tracks were authored at 120 BPM and begin on a downbeat. Normal state changes
- * only happen on bar boundaries, so Perfect Dodge / Combo never drifts when music changes.
- */
 export default class AdaptiveMusicSystem {
   constructor(scene) {
     this.scene = scene;
@@ -66,8 +59,6 @@ export default class AdaptiveMusicSystem {
     this.started = true;
     this.clockStartGameplayMs = this.scene.gameplayElapsedMs ?? 0;
 
-    // 0.9.1：优先使用 WebAudio 的高精度时钟。
-    // 游戏帧掉帧时，蓝光与 Perfect Dodge 仍读取真实音频相位，不累积漂移。
     const audioContext = this.scene.sound?.context;
     this.audioClockStartSec = Number.isFinite(audioContext?.currentTime)
       ? audioContext.currentTime
@@ -154,7 +145,6 @@ export default class AdaptiveMusicSystem {
       );
     }
 
-    // HTML5Audio / 非 WebAudio 环境回退到游戏时钟。
     return Math.max(
       0,
       (this.scene.gameplayElapsedMs ?? 0) - this.clockStartGameplayMs
@@ -198,8 +188,6 @@ export default class AdaptiveMusicSystem {
     const clock = this.getClockMs();
     if (clock === null) return;
 
-    // 0.9.1：蓝光直接读取当前音乐相位，每帧重算。
-    // 不再用“跨过某个时间点才触发 tween”的方式，因此不会累积视觉漂移。
     this.scene.updateBeatIndicator?.(clock);
   }
 
@@ -227,7 +215,6 @@ export default class AdaptiveMusicSystem {
   determineDynamicState() {
     const scene = this.scene;
 
-    // Boss battle after the one-shot entrance cue uses the heavier elite language.
     if (scene.bossActive) return 'elite';
 
     let eliteAlive = false;
@@ -250,14 +237,10 @@ export default class AdaptiveMusicSystem {
     const healthState = this.determineHealthPressureState(hpRatio);
     if (healthState === 'critical') return 'critical_hp';
 
-    // 0.9.2-dev05.1：怪物数量不再改变音乐；旧 low_hp 曲也不再使用。
-    // HP < 30% 时直接切入原“怪潮”音乐，作为唯一低血量紧张层。
     return 'combo';
   }
 
   determineHealthPressureState(hpRatio) {
-    // 单一低血量层：HP < 30% 进入危急音乐；回血超过 35% 后才退出，
-    // 避免在 30% 附近波动时反复切歌。
     if (this.healthPressureState === 'critical') {
       if (hpRatio <= HEALTH_MUSIC.CRITICAL_EXIT) return 'critical';
       this.healthPressureState = 'normal';
@@ -276,8 +259,6 @@ export default class AdaptiveMusicSystem {
   requestState(state, options = {}) {
     if (!TRACKS[state] || this.cueActive || this.terminalCue) return false;
 
-    // 如果条件在真正切换前恢复，取消已经排队的旧状态。
-    // 例如低血量触发后立刻捡到蓝心，不应在下一个小节仍切入低血音乐。
     if (state === this.currentState) {
       if (this.pendingState) {
         this.pendingState = null;
@@ -293,7 +274,6 @@ export default class AdaptiveMusicSystem {
     const nextPriority = TRACKS[state].priority;
     const heldLongEnough = clock - this.stateEnteredClockMs >= this.minStateHoldMs;
 
-    // Higher pressure can interrupt the hold period; relaxing to a lower state waits.
     if (!heldLongEnough && nextPriority <= currentPriority) return false;
 
     this.pendingState = state;
@@ -309,7 +289,6 @@ export default class AdaptiveMusicSystem {
 
     this.cueActive = true;
     this.pendingState = state;
-    // Boss cues should feel responsive but still remain tempo-aligned.
     this.pendingSwitchClockMs = this.getNextGridBoundaryMs(QUARTER_MS);
     return true;
   }
@@ -366,9 +345,6 @@ export default class AdaptiveMusicSystem {
     this.currentState = state;
     this.currentSound = next;
     this.stateEnteredClockMs = this.getClockMs() ?? 0;
-
-    console.debug('[adaptive-music]', `state=${state}`);
-
     if (config.cue && !options.terminal) {
       next.once('complete', () => {
         if (this.currentSound !== next || this.terminalCue) return;

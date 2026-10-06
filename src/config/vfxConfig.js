@@ -1,5 +1,3 @@
-// 0.9.2-dev10：统一 VFX key / 路径登记；已正式接入月牙、脚底 Beat、应援蓝心与「电力四射」。
-// 其它尚未进入 gameplay 的 VFX 仍保持 preload=false。
 
 export const VFX_KEYS = Object.freeze({
   LEGACY_CRESCENT_ATTACK: 'crescentArt',
@@ -30,8 +28,6 @@ export const VFX_KEYS = Object.freeze({
   STAGE_SPIN_03: 'stage_spin_03'
 });
 
-// 「聚光更亮」每获得一次，月牙视觉升一级；Lv4 后只继续涨伤害，视觉封顶。
-// attackDisplaySize 是实际游戏显示尺寸；hitStart/EndScale 以 256x256 正式素材为基准。
 export const CRESCENT_VFX_LEVELS = Object.freeze([
   Object.freeze({
     level: 1,
@@ -76,9 +72,6 @@ export function getCrescentVfxLevel(level = 1) {
   return CRESCENT_VFX_LEVELS[normalized - 1];
 }
 
-// 0.9.2-dev08.1.2：主角相关 VFX 统一以主角 sprite 的视觉锚点为基准。
-// player_idle.png 原图 128x128；当前正式母版非透明可见底部约在 source y=120。
-// feet 锚点会随 player.displayHeight 自动缩放，因此未来调整主角显示尺寸时无需重调绝对 yOffset。
 export const PLAYER_VFX_REFERENCE = Object.freeze({
   sourceWidth: 128,
   sourceHeight: 128,
@@ -88,18 +81,12 @@ export const PLAYER_VFX_REFERENCE = Object.freeze({
   })
 });
 
-// 0.9.2-dev09：正式应援蓝心为 128x128 PNG。
-// pickupScale 约等于旧 30x31 占位蓝心的游戏体量；mutualSupportScale 保持「双向奔赴」旧版小心形的视觉尺寸。
-// 这里只调整正式素材的显示比例，不改变回血、应援值、解毒、生成间隔或生命周期。
 export const SUPPORT_HEART_VFX = Object.freeze({
   pickupScale: 0.25,
   mutualSupportScale: 0.13,
   collectEndScaleFactor: 0.12
 });
 
-// 0.9.2-dev10：「电力四射」只更换表现层，不改变伤害、半径、麻痹、击退、冷却或两段式结算。
-// Lv1/Lv2 使用各自长电弧；Lv3 继续使用 Lv2 长电弧，并叠加 lightning_03 高能中心爆发。
-// electricLevel 超过 3 时视觉封顶 Lv3，数值仍按现有升级逻辑继续成长。
 export const LIGHTNING_VFX_LEVELS = Object.freeze([
   Object.freeze({
     level: 1,
@@ -166,16 +153,13 @@ export function getLightningVfxLevel(level = 1) {
 }
 
 
-// 0.9.2-dev11：「舞台回旋」三阶段正式 VFX。
-// 三张素材保持同一 512x512 画布与同一 pivot；程序只负责旋转、残影、轻微呼吸缩放和前后层次。
-// radiusScale 相对当前 stageSpinRadius 计算显示尺寸，因此未来调整技能半径时视觉可同步适配。
 export const STAGE_SPIN_VFX = Object.freeze({
   anchor: 'center',
   frontCropRatio: 0.50,
   stages: Object.freeze([
     Object.freeze({
       key: VFX_KEYS.STAGE_SPIN_01,
-      durationMs: 90,
+      durationMs: 260,
       radiusScale: 1.45,
       startAngle: -35,
       endAngle: 175,
@@ -185,29 +169,27 @@ export const STAGE_SPIN_VFX = Object.freeze({
     }),
     Object.freeze({
       key: VFX_KEYS.STAGE_SPIN_02,
-      durationMs: 160,
+      durationMs: 360,
       radiusScale: 1.65,
       startAngle: 160,
       endAngle: 510,
       alpha: 0.84,
-      pulseScale: 0.035,
+      pulseScale: 0.02,
       trailOffsets: Object.freeze([14])
     }),
     Object.freeze({
       key: VFX_KEYS.STAGE_SPIN_03,
-      durationMs: 180,
+      durationMs: 480,
       radiusScale: 1.90,
       startAngle: 485,
       endAngle: 1020,
       alpha: 0.96,
-      pulseScale: 0.06,
+      pulseScale: 0.02,
       trailOffsets: Object.freeze([12, 26])
     })
   ])
 });
 
-// 两张正式 PNG 共用 256x128 画布。groundGap 是从主角实际可见脚底到光圈中心的地面距离。
-// visualWindowMs 只控制视觉提前/衰减范围，不参与 Perfect Dodge / Combo 判定。
 export const BEAT_VFX = Object.freeze({
   strong: Object.freeze({
     key: VFX_KEYS.BEAT_STRONG,
@@ -243,9 +225,7 @@ export const BEAT_VFX = Object.freeze({
   })
 });
 
-// preload=true 的素材必须已经存在于 public/ 下。
 export const VFX_ASSETS = Object.freeze([
-  // Legacy 月牙文件暂留在仓库用于回滚，但不再 preload / gameplay 使用。
   {
     key: VFX_KEYS.LEGACY_CRESCENT_ATTACK,
     path: 'assets/effects/crescent_moon.png',

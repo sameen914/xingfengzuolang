@@ -1,25 +1,25 @@
 import * as Phaser from 'phaser';
-import Player from '../player/Player.js';
-import SpawnSystem from '../systems/SpawnSystem.js';
-import AdaptiveMusicSystem from '../systems/AdaptiveMusicSystem.js';
-import VfxSystem, { preloadRegisteredVfx, getPlayerVisualAnchor } from '../systems/VfxSystem.js';
-import ImportantTextManager from '../systems/ImportantTextManager.js';
-import { BEAT_VFX, SUPPORT_HEART_VFX, STAGE_SPIN_VFX, VFX_KEYS, getCrescentVfxLevel, getLightningVfxLevel } from '../config/vfxConfig.js';
-import { GAME, PLAYER, ENEMIES, SPAWN, STATUS_EFFECTS, COMBO_STAGE_SPIN_REWARDS, RELEASE, getDifficultyProfile } from '../config/gameConfig.js';
-import { wrapUpgradeCardTextSemantic } from '../ui/upgradeTextWrap.js';
+import Player from '../player/Player.js?v=2.0.0';
+import SpawnSystem from '../systems/SpawnSystem.js?v=2.0.0';
+import AdaptiveMusicSystem from '../systems/AdaptiveMusicSystem.js?v=2.0.0';
+import VfxSystem, { preloadRegisteredVfx, getPlayerVisualAnchor } from '../systems/VfxSystem.js?v=2.0.0';
+import ImportantTextManager from '../systems/ImportantTextManager.js?v=2.0.0';
+import { BEAT_VFX, SUPPORT_HEART_VFX, STAGE_SPIN_VFX, VFX_KEYS, getCrescentVfxLevel, getLightningVfxLevel } from '../config/vfxConfig.js?v=2.0.0';
+import { GAME, PLAYER, ENEMIES, SPAWN, STATUS_EFFECTS, RELEASE, getDifficultyProfile } from '../config/gameConfig.js?v=2.0.0';
+import { wrapUpgradeCardTextSemantic } from '../ui/upgradeTextWrap.js?v=2.0.0';
 
-const PLAYER_COMBO_BREAK_MS = 5000;
+const PLAYER_COMBO_BREAK_MS = 2000;
 const PLAYER_COMBO_FEEDBACK_START = 20;
 const PLAYER_COMBO_BURST_MILESTONES = Object.freeze([25, 30, 40, 50, 60, 80, 100]);
+const THEME_BLUE = 0x94d5f3;
+const THEME_BLUE_HEX = '#94d5f3';
+const GOLD_PARTICLE = 0xffd46b;
+const LIFESTEAL_RED = 0xff4058;
+const LIFESTEAL_RED_HOT = 0xff7b8a;
+const UPGRADE_ROMAN = Object.freeze(['', 'I', 'II', 'III', 'IV']);
 const KEY_UP_PEAK_MS = 560;
 const KEY_UP_BURST_MS = 650;
 const KEY_UP_VISUAL_MS = 1050;
-// 大升Key VFX PNG 的“视觉中心”并不等于贴图画布中心。
-// 这里用素材内部的光环/爆发中心作为 origin，避免角色看起来偏在效果上方。
-// dev14.21.8.6.4：先校准所有 Key-Up 素材自身的“视觉核心”，再把整组统一贴到玩家。
-// dev14.21.8.6.4.2：先统一素材自身的“地面基线”，再把整组挂到玩家脚底。
-// dev14.21.8.6.4.3：素材组内高度保持不变，仅将整组统一下移 14px。
-// 这些 pivot 对应各 PNG 内部最主要的地面/底盘亮带，而不是画布几何中心。
 const KEY_UP_VFX_GROUP_Y_OFFSET = 12;
 const KEY_UP_BURST_Y_OFFSET = 24;
 const KEY_UP_VFX_PIVOTS = Object.freeze({
@@ -71,20 +71,15 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     this.bindBootLoadingProgress();
 
-    // Prototype 0.8.13：加载已经锁定的正式角色素材。
     this.load.image('playerArt', 'assets/player/player_idle.png');
-    // dev14.21.5.10：双向奔赴专用单帧。仅在月光救赎主阶段短暂替换主角。
     this.load.image('playerMutualSupportHealArt', 'assets/player/player_mutual_support_heal.png');
-    // dev14.21.8.6：大升Key专用单帧，离线归一化为与 player_idle 相同的 128x128 逻辑画布。
     this.load.image('playerKeyUpBurstArt', 'assets/player/player_key_up_burst.png');
     this.load.image('playerXiafanStunArt', 'assets/player/player_xiafan_stun.png');
     this.load.image('playerXiafanRecoverArt', 'assets/player/player_xiafan_recover.png');
     this.load.image('playerJudgmentKnockdownArt', 'assets/player/player_judgment_knockdown.png');
-    // dev14.11.6：女王鸭「陪我吃鱼」锁定的主角缠网两态。
     this.load.image('playerFishNetCaughtArt', 'assets/player/player_fish_net_caught.png');
     this.load.image('playerFishNetPullArt', 'assets/player/player_fish_net_pull.png');
     this.load.image('playerDuckQueenDrainArt', 'assets/player/player_duck_queen_drain.png');
-    // dev14.19.0：「大发卖」锁定的主角 7 帧演出 + PNG 地面压迫序列 + 现有帧左侧特写。
     this.load.image('playerDafamaiReliefArt', 'assets/player/player_dafamai_relief.png');
     this.load.image('playerDafamaiNoticeArt', 'assets/player/player_dafamai_notice.png');
     this.load.image('playerDafamaiPanic1Art', 'assets/player/player_dafamai_panic_1.png');
@@ -92,8 +87,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('playerDafamaiTrappedArt', 'assets/player/player_dafamai_trapped.png');
     this.load.image('playerDafamaiImpaledArt', 'assets/player/player_dafamai_impaled.png');
     this.load.image('playerDafamaiHangingArt', 'assets/player/player_dafamai_hanging.png');
-    // Internal Test v1.0.14：「下黑水」全屏十字雨 + 左侧 9 帧演绎 + 强终爆。
-    // 05 使用 09/29 最终替换图；06/07 保留原方向，作为左右连续闪避，不做镜像。
     this.load.image('playerBlackwaterAlertArt', 'assets/player/blackwater/player_blackwater_01.png');
     this.load.image('playerBlackwaterDodgeRightArt', 'assets/player/blackwater/player_blackwater_02.png');
     this.load.image('playerBlackwaterGlanceBackArt', 'assets/player/blackwater/player_blackwater_03.png');
@@ -103,7 +96,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('playerBlackwaterWoundedDodgeBArt', 'assets/player/blackwater/player_blackwater_07.png');
     this.load.image('playerBlackwaterDownArt', 'assets/player/blackwater/player_blackwater_08.png');
     this.load.image('playerBlackwaterEndingArt', 'assets/player/blackwater/player_blackwater_09.png');
-    // 0.9.2-dev10：VFX manifest 已预载月牙、Beat、应援蓝心与「电力四射」正式素材。
     preloadRegisteredVfx(this);
 
     this.load.image('potatoNormalArt', 'assets/potato/potato_normal.png');
@@ -115,8 +107,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('potatoDeadArt', 'assets/potato/potato_dead.png');
 
 
-    // 0.9.2-dev14.3.1：土豆指挥官改为四层血严格对应四阶段；第一层为天蓝色。
-    // 抱团、下凡、赐福与净场已分步接入；圣恩有价与圣裁继续分步实现。
     const potatoCommanderArt = {
       potatoCommanderS1NormalArt: 'assets/potato_commander/stage1/potato_commander_s1_normal.png',
       potatoCommanderS1GroupArt: 'assets/potato_commander/stage1/potato_commander_s1_baotuan.png',
@@ -166,7 +156,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('ballArt', 'assets/football/football_normal.png');
     this.load.image('ballDeadArt', 'assets/football/football_dead.png');
 
-    // 0.9.2-dev14.10.7：普通小怪死亡血浆改用 Strong Beat 地面视角的透明 PNG。
     const enemyBloodSplatArt = {
       duckBlood01Art: 'assets/blood_splats/duck_blood_01.png',
       duckBlood02Art: 'assets/blood_splats/duck_blood_02.png',
@@ -181,7 +170,6 @@ export default class GameScene extends Phaser.Scene {
     };
     Object.entries(enemyBloodSplatArt).forEach(([key, path]) => this.load.image(key, path));
 
-    // 0.9.2-dev13：双子猪正式角色帧与喷粪状态素材。
     this.load.image('twinPigsNormalArt', 'assets/twin_pigs/twin_pigs_normal.png');
     this.load.image('twinPigsPoopArt', 'assets/twin_pigs/twin_pigs_poop.png');
     this.load.image('twinPigsBeg01Art', 'assets/twin_pigs/twin_pigs_beg_01.png');
@@ -194,7 +182,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('poopInfectBurstArt', 'assets/twin_pigs/poop_fx/poop_infect_burst.png');
     this.load.image('poopHitArt', 'assets/twin_pigs/poop_fx/poop_hit.png');
 
-    // 0.9.2-dev14.10：瘟疫猫正式五态图与锁定的瘟疫感染素材。
     this.load.image('plagueCatNormalArt', 'assets/plague_cat/plague_cat_normal.png');
     this.load.image('plagueCatSprayArt', 'assets/plague_cat/plague_cat_spray.png');
     this.load.image('plagueCatLovestruck01Art', 'assets/plague_cat/plague_cat_lovestruck_01.png');
@@ -205,7 +192,6 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('plagueOverlayBArt', 'assets/plague_cat/plague_fx/plague_overlay_b.png');
     this.load.image('plagueOverlayCArt', 'assets/plague_cat/plague_fx/plague_overlay_c.png');
 
-    // 0.9.2-dev14.11：女王鸭正式阶段 / 贴贴素材。
     this.load.image('queenDuckS1NormalArt', 'assets/duck_queen/queen_duck_s1_normal.png');
     this.load.image('queenDuckS1CandyArt', 'assets/duck_queen/queen_duck_s1_candy.png');
     this.load.image('queenDuckS2NormalArt', 'assets/duck_queen/queen_duck_s2_normal.png');
@@ -220,21 +206,17 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('queenDuckS3TietieArt', 'assets/duck_queen/queen_duck_s3_tietie.png');
     this.load.image('queenDuckS3BlackframeCastArt', 'assets/duck_queen/queen_duck_s3_blackframe_cast.png');
     this.load.image('queenDuckBlackframeStandardArt', 'assets/duck_queen/blackframe_standard.png');
-    // dev14.17.0：锁定的「大发卖」终极技角色图与砸屏标题图，正式接入终极技状态机。
     this.load.image('queenDuckS3DafamaiCastArt', 'assets/duck_queen/queen_duck_s3_dafamai_cast.png');
     this.load.image('queenDuckDafamaiTitleArt', 'assets/duck_queen/dafamai_title.png');
     this.load.image('queenDuckDafamaiExplosionArt', 'assets/duck_queen/dafamai_explosion.png');
-    // dev14.19.0：大发卖正式地面 PNG 序列。全部为统一游戏地面视角，按 relief → notice → panic → trapped → impale 单向向内填充。
     this.load.image('queenDuckDafamaiGroundReliefArt', 'assets/duck_queen/dafamai/ground_relief.png');
     this.load.image('queenDuckDafamaiGroundNoticeArt', 'assets/duck_queen/dafamai/ground_notice.png');
     this.load.image('queenDuckDafamaiGroundPanic1Art', 'assets/duck_queen/dafamai/ground_panic_1.png');
     this.load.image('queenDuckDafamaiGroundPanic2Art', 'assets/duck_queen/dafamai/ground_panic_2.png');
     this.load.image('queenDuckDafamaiGroundTrappedArt', 'assets/duck_queen/dafamai/ground_trapped.png');
     this.load.image('queenDuckDafamaiImpaleBaseArt', 'assets/duck_queen/dafamai/impale_base.png');
-    // dev14.11.6：「陪我吃鱼」锁定的粉紫毒死鱼 projectile。
     this.load.image('queenFishProjectileArt', 'assets/duck_queen/queen_fish_projectile.png');
 
-    // dev14.20.0：女王鸭败北 ending。女王鸭败北图 + 暗月六帧胜利 cut-in。
     this.load.image('queenDuckEndingDefeatArt', 'assets/duck_queen/ending/queen_duck_defeated_cry.png');
     this.load.image('playerVictoryEnding01', 'assets/player/ending/victory_01_think.png');
     this.load.image('playerVictoryEnding02', 'assets/player/ending/victory_02_close.png');
@@ -243,10 +225,8 @@ export default class GameScene extends Phaser.Scene {
     this.load.image('playerVictoryEnding05', 'assets/player/ending/victory_05_close_flourish.png');
     this.load.image('playerVictoryEnding06', 'assets/player/ending/victory_06_close_final.png');
 
-    // 0.9.2-dev05.1：当前动态战斗音乐使用 6 套状态曲，全部锁在 120 BPM。
     const adaptiveTracks = {
       musicCombo: '01_combo_smooth.wav',
-      // 0.9.2-dev05.1：HP < 30% 直接使用原“怪潮”音乐作为危急低血量层。
       musicCriticalHp: '03_swarm.wav',
       musicElite: '04_elite.wav',
       musicBossAppear: '05_boss_appear.wav',
@@ -259,14 +239,12 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.load.audio('hitLight', 'assets/audio/sfx/hit_light.wav');
-    // v1.0.28：下黑水专属音效层。
     this.load.audio('blackwaterTitleOmenSfx', 'assets/audio/sfx/blackwater/blackwater_title_omen.wav');
     this.load.audio('blackwaterCrossWarningSfx', 'assets/audio/sfx/blackwater/blackwater_cross_warning.wav');
     this.load.audio('blackwaterCrossImpactSfx', 'assets/audio/sfx/blackwater/blackwater_cross_impact.wav');
     this.load.audio('blackwaterFrenzyRumbleSfx', 'assets/audio/sfx/blackwater/blackwater_frenzy_rumble.wav');
     this.load.audio('blackwaterFinalBlastSfx', 'assets/audio/sfx/blackwater/blackwater_final_blast.wav');
     this.load.audio('blackwaterBlindRingSfx', 'assets/audio/sfx/blackwater/blackwater_blind_ring.wav');
-    // dev14.21.5.3：「双向奔赴」改用独立 PNG 月牙 + 月光束主层。
     this.load.image('mutualSupportMoonCrescentArt', 'assets/vfx/mutual_support/moon_crescent_smooth.png');
     this.load.image('mutualSupportSkyMoonArt', 'assets/vfx/mutual_support/moon_crescent_moonlight.png');
     this.load.image('mutualSupportBeamMainArt', 'assets/vfx/mutual_support/moon_beam_main.png');
@@ -276,18 +254,13 @@ export default class GameScene extends Phaser.Scene {
     this.load.audio('mutualSupportMoonAppearSfx', 'assets/audio/sfx/mutual_support_moon_appear.wav');
     this.load.audio('mutualSupportHealSfx', 'assets/audio/sfx/mutual_support_heal.wav');
     this.load.audio('mutualSupportCleanseSfx', 'assets/audio/sfx/mutual_support_cleanse.wav');
-    // dev14.21.8.6：大升Key蓝焰分层素材。全部在运行时按现有 KEY_UP_RADIUS 等比缩放。
     this.load.image('keyUpSpiralBackArt', 'assets/vfx/key_up/key_up_spiral_back.png');
     this.load.image('keyUpSpiralFrontArt', 'assets/vfx/key_up/key_up_spiral_front.png');
     this.load.image('keyUpGroundFlameArt', 'assets/vfx/key_up/key_up_ground_flame.png');
     this.load.image('keyUpAoeBurstArt', 'assets/vfx/key_up/key_up_aoe_burst.png');
     this.load.image('keyUpPeakFlashArt', 'assets/vfx/key_up/key_up_peak_flash.png');
-    // dev14.20.15：在获批 v8 的基础上做“快收尾”v9。
-    // 0–4s 保留 v8 原乐句质感；最终胜利重拍提前到约 4.10s，尾音约 5.58s 收完。
     this.load.audio('duckQueenVictoryMusic', 'assets/audio/ending/victory_0927.mp3');
-    // 《淡季》直接使用用户最终提供的原始 0918(1).MP3 片段；文件自身已经包含磁带入仓声。
     this.load.audio('danjiEndingMusic', 'assets/audio/ending/danji.mp3');
-    // v1.1.1：土豆指挥官败北段使用《送别》卡点；青蛙出现后改用《小跳蛙长版》循环到返回标题。
     this.load.audio('potatoEndingSendoffMusic', 'assets/audio/ending/songbie.mp3');
     this.load.audio('potatoEndingFrogMusic', 'assets/audio/ending/xiaotiaowa_long.mp3');
     this.load.image('potatoCommanderEndingDefeatedArt', 'assets/potato_commander/ending/potato_commander_defeated_cry.png');
@@ -295,12 +268,8 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.createPlaceholderTextures();
-    // 0.9.2-dev10：统一 VFX helper；用于月牙、Beat、应援蓝心与「电力四射」。
     this.vfx = new VfxSystem(this);
-    // 0.9.2-dev10.1-A：电力四射的一次释放使用同一主角中心锚点上下文。
-    // VFX 在短暂生命周期内跟随主角中心，避免移动时视觉中心留在旧世界坐标。
     this.activeElectricCasts = new Set();
-    // 0.9.2-dev07.1-B：所有角色的重要台词 / 阶段名 / 核心技能名统一走独立通道。
     this.importantText = new ImportantTextManager(this);
 
     this.physics.world.setBounds(0, 0, GAME.WORLD_WIDTH, GAME.WORLD_HEIGHT);
@@ -315,7 +284,6 @@ export default class GameScene extends Phaser.Scene {
     this.xpGems = this.physics.add.group();
     this.poopProjectiles = this.physics.add.group();
     this.fishProjectiles = this.physics.add.group();
-    // Step 3.2: Potato Commander basic attack uses a Phaser-generated cross projectile.
     this.potatoCommanderCrossProjectiles = this.physics.add.group();
     this.cassetteDrops = this.physics.add.group();
     this.supportHearts = this.physics.add.group();
@@ -326,7 +294,6 @@ export default class GameScene extends Phaser.Scene {
     this.spawnSystem = new SpawnSystem(this, this.enemies);
     this.statusEffects = STATUS_EFFECTS;
 
-    // Prototype 0.4：女王鸭 Boss 状态。
     this.bossActive = false;
     this.duckQueen = null;
     this.duckQueenAttached = false;
@@ -341,7 +308,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenPinkPuddles = [];
     this.duckQueenPinkStains = [];
     this.duckQueenDazeUntil = -Infinity;
-    // 「蛊惑」改为非投射物法术：施法黑心 + 10 秒主角黑心状态印记。
     this.duckQueenCharmSpell = null;
     this.duckQueenCharmUntil = -Infinity;
     this.duckQueenCharmMark = null;
@@ -349,14 +315,12 @@ export default class GameScene extends Phaser.Scene {
     this.playerInFishStink = false;
     this.playerInDuckQueenPinkPuddle = false;
     this.playerStatusNoticeTimes = new Map();
-    // 小怪鸭对女王鸭关键动作的短时反应窗口。
     this.duckQueenCandyReactionUntil = -Infinity;
     this.duckQueenCandyReactionPhase = null;
     this.duckQueenTietieReactionUntil = -Infinity;
     this.duckQueenTietieReactionPhase = null;
     this.duckQueenDafaReactionUntil = -Infinity;
 
-    // dev14.11.6：「陪我吃鱼」缠网 / 牵引状态。
     this.duckQueenFishNetActive = false;
     this.duckQueenFishNetEscapeInputs = 0;
     this.duckQueenFishNetPullStartsAt = -Infinity;
@@ -364,25 +328,7 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenFishNetHint = null;
     this.duckQueenFishNetVisualState = null;
 
-    // DEBUG 面板：正式发行版由 RELEASE.DEVELOPER_TOOLS 统一关闭。
-    // Growth / Moon Guardian 调试面板恢复为按快捷键再显示。
-    this.growthDebugPanel = null;
-    this.growthDebugInfoText = null;
-    this.growthDebugHitTargets = [];
-    this.growthDebugInputBlocker = null;
-    this.growthDebugGuardianButton = null;
 
-    // dev14.16.0：历史字段名保留。Boss / Ending 控制台仍保留为独立面板。
-    this.duckQueenDebugPanel = null;
-    this.duckQueenDebugInfoText = null;
-    // dev14.16.1: interactive controls live in real screen space instead of as
-    // Container children. This keeps hit areas aligned while the world camera follows the player.
-    this.duckQueenDebugHitTargets = [];
-    this.duckQueenDebugInputBlocker = null;
-    this.duckQueenDebugIgnoreCooldown = false;
-
-    // dev14.17.0：「黑框 → 大发卖」正式终极技运行状态。
-    // DEBUG 按钮与正式 AI 共用同一套状态机，不维护第二套“假的预览逻辑”。
     this.duckQueenUltimateActive = false;
     this.duckQueenUltimateStage = 'idle';
     this.duckQueenUltimateEvents = [];
@@ -395,18 +341,11 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenUltimateAnchorX = null;
     this.duckQueenUltimateAnchorY = null;
     this.duckQueenUltimateCutsceneActive = false;
-    // dev14.19.2：大发卖演绎开始后，小怪不再追暗月，而是主动撤离红水晶地面。
-    // 紫蟑螂在外围等待到挂刺结束，再进行短促链爆，最后才接中央大发卖爆炸。
     this.duckQueenDafamaiEvacuationActive = false;
     this.duckQueenDafamaiEvacuationCenterX = null;
     this.duckQueenDafamaiEvacuationCenterY = null;
     this.duckQueenDafamaiRoachFinaleActive = false;
-    // 旧字段保留为兼容别名，避免历史 debug 检查/热更新代码读取 undefined。
-    this.duckQueenDebugUltimatePreviewActive = false;
-    this.duckQueenDebugUltimateEvents = this.duckQueenUltimateEvents;
-    this.duckQueenDebugUltimateTitle = null;
 
-    // Prototype 0.6：「土豆指挥官」Final Boss。
     this.potatoCommander = null;
     this.potatoPityActive = false;
     this.potatoCommanderDefeated = false;
@@ -414,7 +353,6 @@ export default class GameScene extends Phaser.Scene {
     this.commanderLikeAttackActive = false;
     this.commanderLikePlayerHitUntil = -Infinity;
     this.commanderJudgmentActive = false;
-    // Internal Test v1.0.12：「下黑水」继续使用正式三十字流程；最终白屏收束后恢复正常战斗。
     this.commanderBlackwaterPreviewActive = false;
     this.commanderBlackwaterEvents = [];
     this.commanderBlackwaterFx = [];
@@ -435,7 +373,6 @@ export default class GameScene extends Phaser.Scene {
     this.endingSequenceActive = false;
     this.victoryElapsedSeconds = null;
 
-    // dev14.20.0：女王鸭败北 ending 运行状态。
     this.duckQueenVictoryEndingActive = false;
     this.duckQueenVictoryEndingEvents = [];
     this.duckQueenVictoryEndingFx = [];
@@ -445,7 +382,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenVictoryEndingCassetteLabel = null;
     this.duckQueenVictoryEndingVictoryAudio = null;
     this.duckQueenVictoryEndingAudio = null;
-    // dev14.21.8：Ending 专用群众演员。仅用于结局演出，不加入 enemies / physics。
     this.duckQueenVictoryEndingCrowd = [];
     this.duckQueenVictoryEndingCrowdExploded = false;
     this.duckQueenVictoryEndingHudSnapshot = [];
@@ -454,7 +390,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenVictoryEndingGroundVfxSyncEvent = null;
     this.duckQueenVictoryEndingBeatSnapshot = null;
 
-    // Internal Test v1.1.0：土豆指挥官专属 Ending。
     this.potatoCommanderEndingActive = false;
     this.potatoCommanderEndingEvents = [];
     this.potatoCommanderEndingFx = [];
@@ -466,9 +401,7 @@ export default class GameScene extends Phaser.Scene {
     this.potatoCommanderEndingCurtain = null;
     this.potatoCommanderBattleSummaryFx = [];
 
-    // 重要文字由 ImportantTextManager 按角色独立排队；普通浮字不会占用重要文字槽位。
 
-    // 主角主动技能 / 蓝心投喂。
     this.supportBuffUntil = -Infinity;
     this.nextSupportHeartAt = this.time.now + PLAYER.SUPPORT_HEART_FIRST_MS;
     this.mobileMoveVector = new Phaser.Math.Vector2(0, 0);
@@ -486,7 +419,6 @@ export default class GameScene extends Phaser.Scene {
         && window.matchMedia('(pointer: coarse)').matches
       )
     );
-    // 女王鸭贴身生态 Buff 不再每帧刷新，避免怪多时产生性能雪崩。
 
     this.bossBarBg = null;
     this.bossBarRedFill = null;
@@ -494,9 +426,9 @@ export default class GameScene extends Phaser.Scene {
     this.bossBarGreenFill = null;
     this.bossBarSkyBlueFill = null;
     this.bossBarText = null;
+    this.bossSkillHudText = null;
+    this.bossSkillHudSourceType = null;
 
-    // 主角固定长度叠层血条：红 → 黄 → 绿 → #94d5f3。
-    // 每层覆盖同一条槽，不随 Max HP 变长。
     this.playerHpBarBg = null;
     this.playerHpBarRedFill = null;
     this.playerHpBarYellowFill = null;
@@ -512,16 +444,10 @@ export default class GameScene extends Phaser.Scene {
     this.level = 1;
     this.xp = 0;
     this.xpNeeded = this.getXpNeeded();
-    // 0.9.2-dev14.5.7：暗月常驻极淡 #94d5f3 轮廓光。
-    // 随角色等级逐步增强；被土豆指挥官真正遮挡时再临时加强，帮助定位主角。
     this.playerOutline = null;
-    // dev14.21.4：主角成长 Aura 分层：蓝色核心始终是身份色，红色只从外围逐步渗入。
-    // 红蓝不直接混成一个 tint，避免高等级变成脏紫色。
     this.playerAuraBlueGlow = null;
     this.playerAuraRedGlow = null;
     this.playerAuraTransientFx = new Set();
-    // dev14.21.4.3：成长 Aura 改成按颜色 / 等级独立调度。
-    // Lv.10 起蓝色短电弧/粒子，Lv.15 起红色短电弧/粒子；等级越高密度越高。
     this.nextPlayerAuraBlueParticleAt = 0;
     this.nextPlayerAuraRedParticleAt = 0;
     this.nextPlayerAuraBlueArcAt = 0;
@@ -544,23 +470,17 @@ export default class GameScene extends Phaser.Scene {
     };
     this.combo = 0;
     this.highestCombo = 0;
-    // dev14.21.6：连续节奏 Combo。5 秒没有新的成功节奏动作就断连归零。
-    // 使用 gameplayElapsedMs，而不是 Phaser 全局时钟，因此升级选择等半暂停不会偷走 Combo 时间。
     this.lastSuccessfulRhythmGameplayMs = -Infinity;
     this.playerComboFeedbackText = null;
-    // 0.9.2-dev11.4：5 / 10 / 20 Combo 的舞台回旋奖励各自只在向上跨过阈值时触发一次。
-    // Combo 被伤害打到阈值以下后，对应档位重新武装，允许之后重新爬回时再次触发。
-    this.comboStageSpinReady = new Set(COMBO_STAGE_SPIN_REWARDS.map((reward) => reward.combo));
 
-    // 0.9.2-dev11.3：明确的节奏输入只来自「踩拍」与踩拍闪身。
-    // 「踩拍」成功会储存一次下一发自动月牙强化；同一 subdivision 只结算一次，避免连点刷 Combo。
     this.beatCharge = false;
+    this.beatChargeComboTier = 0;
     this.lastRhythmBeatIndex = null;
     this.lastFlashStepDashStartedAt = -Infinity;
     this.beatChargeIndicator = null;
+    this.crescentVolleySerial = 0;
+    this.crescentLifestealProcessedVolleys = new Set();
 
-    // 击败丹麦鸭后获得永久被动防御技能「月之守卫」。
-    // 该月牙始终围绕主角旋转，不再飞离轨道；同一敌人有独立命中冷却。
     this.playerOrbitCrescentUnlocked = false;
     this.playerOrbitCrescentPendingUnlock = false;
     this.playerOrbitCrescent = null;
@@ -574,8 +494,6 @@ export default class GameScene extends Phaser.Scene {
     this.tutorialBeatActionHitAt = -Infinity;
     this.tutorialFlashStepHitAt = -Infinity;
 
-    // 0.9.0：统一 120 BPM 自适应音乐时钟。
-    // 音乐状态切换与 Perfect Dodge 共用同一时钟，切歌不重置 Combo 节拍。
     this.adaptiveMusic = new AdaptiveMusicSystem(this);
     this.adaptiveMusic.create();
     this.beatStrongImage = null;
@@ -598,33 +516,24 @@ export default class GameScene extends Phaser.Scene {
     this.tutorialStartX = this.player.x;
     this.tutorialStartY = this.player.y;
 
-    // 0.9.2-dev04：统一临时文字管理。
-    // 世界文字自动避让；屏幕通知固定分槽排列；EXP 继续采用「旧换新」。
     this.activeWorldTextLabels = [];
     this.activeScreenNotices = [];
 
-    // EXP 头顶反馈：新反馈替换旧反馈，短时间连续拾取自动合并。
     this.xpFeedbackText = null;
     this.lastXpPickupAt = -Infinity;
     this.xpFeedbackBurst = 0;
 
-    // 鸭子头顶「嘎」同屏限流。
     this.activeDuckQuacks = 0;
 
     this.startedAt = this.time.now;
-    // 只累计真正游玩的时间；升级三选一期间不会增加。
     this.gameplayElapsedMs = 0;
     this.nextShotAt = 0;
     this.isChoosingUpgrade = false;
     this.pendingUpgradeChoices = 0;
-    // dev14.21.4.5：技能卡不再每级都给，只在 Lv.5 / 10 / 15 / ... 出现。
-    // 额外保存真正跨过的里程碑等级，避免一次连升多级时漏卡或标题错位。
     this.pendingUpgradeMilestoneLevels = [];
     this.activeUpgradeMilestoneLevel = null;
-    // 圣裁终爆后的跪地/闪烁恢复期间，以及恢复后的 1 秒内，都不弹升级卡。
     this.upgradeBlockedUntil = -Infinity;
     this.finished = false;
-    this.internalTestSettlementActive = false;
 
     this.physics.add.overlap(this.bullets, this.enemies, this.onBulletHitsEnemy, undefined, this);
     this.physics.add.overlap(this.player, this.enemies, this.onEnemyTouchesPlayer, undefined, this);
@@ -648,9 +557,6 @@ export default class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.applyResponsiveLayout, this);
     });
-    if (RELEASE.DEVELOPER_TOOLS) {
-      this.createDuckQueenDebugPanel();
-    }
 
     this.tutorialHintText = this.add.text(
       GAME.WIDTH / 2,
@@ -672,18 +578,13 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(188)
       .setVisible(false);
 
-    // 浏览器通常要求第一次用户交互后才允许播放声音。
-    // 0.9.1：游戏时钟与音乐同时起跑；音频尚未解锁时，关卡不会先偷偷运行。
     const launchedFromStartScene = this.registry.get('launchedFromStartScene') === true;
-    const autoStartInternalTest = this.registry.get('internalTestAutoStart') === true;
-    const forceInternalTestTitle = this.registry.get('internalTestForceTitle') === true;
+    const autoStartRun = this.registry.get('autoStartRun') === true;
+    const forceTitleGate = this.registry.get('forceTitleGate') === true;
     this.registry.set('launchedFromStartScene', false);
-    this.registry.set('internalTestAutoStart', false);
-    this.registry.set('internalTestForceTitle', false);
+    this.registry.set('autoStartRun', false);
+    this.registry.set('forceTitleGate', false);
 
-    // v1.1.0 正式入口由 StartScene 的难度选择页负责。
-    // 直接从难度按钮进入时不再闪出旧的「点击 / 按键开始」遮罩；
-    // 旧 DEBUG / 历史重启路径仍保留这个 Gate 作为兼容兜底。
     if (!launchedFromStartScene) this.createGameStartGate();
 
     const startExperience = () => this.startGameplayExperience();
@@ -692,12 +593,12 @@ export default class GameScene extends Phaser.Scene {
       this.input.keyboard.once('keydown', startExperience);
     }
 
-    if (launchedFromStartScene || autoStartInternalTest) {
+    if (launchedFromStartScene || autoStartRun) {
       this.time.delayedCall(0, () => this.startGameplayExperience());
     } else {
       const audioContext = this.sound?.context;
       if (
-        !forceInternalTestTitle
+        !forceTitleGate
         && !this.sound?.locked
         && (!audioContext || audioContext.state === 'running')
       ) {
@@ -743,289 +644,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    if (RELEASE.DEVELOPER_TOOLS) {
-      // 使用显式 Key 对象，避免不同浏览器对 keydown-B 事件名处理不一致。
-      this.debugDuckQueenKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
-      this.debugDuckQueenKey.on('down', () => {
-        if (this.finished || this.isChoosingUpgrade) return;
-
-        // 调试召唤统一无敌，且放在 handler 前部，避免后续启动 gate 逻辑改变时漏掉。
-        this.player.debugInvincible = true;
-        this.player.hp = this.player.maxHp;
-
-        // B 本身就是一次有效用户交互；调试召唤时确保游戏时钟已经启动，
-        // 避免 Boss 生成后因为 start gate 仍在等待而看起来“不会移动”。
-        this.startGameplayExperience();
-        // 调试召唤不能被首次音频解锁 Promise 卡住；B 仅测试时直接放行 AI 更新。
-        if (this.waitingForGameStart) {
-          this.waitingForGameStart = false;
-          this.gameStartInitiated = false;
-          (this.gameStartGate ?? []).forEach((item) => item?.destroy());
-          this.gameStartGate = null;
-          this.adaptiveMusic?.start?.();
-        }
-        if (this.duckQueen?.active) {
-          this.showScreenNotice('「👑 丹麦鸭已经在场」', '#ffd0e6');
-          return;
-        }
-
-        const queen = this.spawnSystem.spawnDuckQueen({ force: true, debug: true });
-        if (queen) {
-          queen.setTarget(this.player);
-          queen.stunnedUntil = -Infinity;
-          queen.body?.setEnable(true);
-          queen.setActive(true).setVisible(true);
-          this.time.delayedCall(80, () => {
-            if (queen?.active && !queen.isDead) queen.setTarget(this.player);
-          });
-          this.showScreenNotice('「B：已召唤丹麦鸭」', '#ffd0e6');
-        } else {
-          this.showScreenNotice('「B：丹麦鸭召唤失败」', '#ff9b9b');
-        }
-      });
-
-      // 0.9.2-dev13：O 调试键，立即把双子猪生成在主角附近；Boss 在场时优先靠近 Boss，便于测试跪拜。
-      this.debugTwinPigKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.O);
-      this.debugTwinPigKey.on('down', () => {
-        if (this.finished || this.isChoosingUpgrade) return;
-
-        this.player.debugInvincible = true;
-        this.player.hp = this.player.maxHp;
-
-        const pig = this.spawnSystem.spawnElite('twinPig', { debugNear: true });
-        if (pig) {
-          this.showScreenNotice('「O：已召唤双子猪」', '#e7a7a7');
-        } else {
-          this.showScreenNotice('「O：双子猪召唤失败」', '#ff9b9b');
-        }
-      });
-
-      // DEBUG 快捷键：Shift+T 打开本轮成长 / 月守机制主面板；Shift+G 打开 Boss / Ending 控制台。
-      this.input.keyboard.on('keydown-T', (event) => {
-        if (event.shiftKey) this.toggleGrowthDebugPanel();
-      });
-
-      // Internal Test v1.0.8：Boss / Ending 调试台保留，但改到 Shift+G，避免与主 Debug 面板冲突。
-      // 原 Shift+1/2/3 丹麦鸭阶段快捷键移除，避免与土豆指挥官阶段测试冲突。
-      this.input.keyboard.on('keydown-G', (event) => {
-        if (event.shiftKey) this.toggleDuckQueenDebugPanel();
-      });
-
-      // 0.9.2-dev14.10.1：Y 调试键，立即把瘟疫猫生成在主角附近。
-      this.debugPlagueCatKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Y);
-      this.debugPlagueCatKey.on('down', () => {
-        if (this.finished || this.isChoosingUpgrade) return;
-
-        this.player.debugInvincible = true;
-        this.player.hp = this.player.maxHp;
-
-        const cat = this.spawnSystem.spawnElite('plagueCat', { debugNear: true });
-        if (cat) {
-          this.showScreenNotice('「Y：已召唤瘟疫猫」', '#9be78e');
-        } else {
-          this.showScreenNotice('「Y：瘟疫猫召唤失败」', '#ff9b9b');
-        }
-      });
-
-      // Step 2: isolated Potato Commander debug tools. These controls only affect
-      // explicit developer testing and do not alter normal boss progression.
-      this.debugPotatoAssetIndex = -1;
-      this.debugPotatoAssetPreview = null;
-      this.debugPotatoAssetKeys = [
-        ['potatoCommanderS1NormalArt', 'S1 normal'],
-        ['potatoCommanderS1GroupArt', 'S1 抱团'],
-        ['potatoCommanderS2NormalArt', 'S2 normal'],
-        ['potatoCommanderS2GroupArt', 'S2 抱团'],
-        ['potatoCommanderS2SmashArt', 'S2 下场'],
-        ['potatoCommanderS3NormalArt', 'S3 normal'],
-        ['potatoCommanderS3GroupArt', 'S3 抱团'],
-        ['potatoCommanderS3SmashArt', 'S3 下场'],
-        ['potatoCommanderS3BlessArt', 'S3 团魂'],
-        ['potatoCommanderS3CleanseArt', 'S3 独美'],
-        ['potatoCommanderS3LikeArt', 'S3 点赞'],
-        ['potatoCommanderS4NormalArt', 'S4 normal'],
-        ['potatoCommanderS4GroupArt', 'S4 抱团'],
-        ['potatoCommanderS4SmashArt', 'S4 下场'],
-        ['potatoCommanderS4BlessArt', 'S4 团魂'],
-        ['potatoCommanderS4CleanseArt', 'S4 独美'],
-        ['potatoCommanderS4GraceArt', 'S4 圣恩有价'],
-        ['potatoCommanderS4JudgmentCastArt', 'S4 下黑水吟诵'],
-        ['potatoCommanderSmashImpactArt', 'VFX 下场冲击'],
-        ['potatoCommanderJudgmentWarningArt', 'VFX 下黑水预警'],
-        ['potatoCommanderJudgmentExplosionArt', 'VFX 下黑水旧爆发（兼容）'],
-        ['potatoCommanderJudgmentRainArt', 'VFX 下黑水坠落十字架'],
-        ['potatoCommanderJudgmentPipUnlitArt', 'HUD 下黑水计数十字（未点亮）'],
-        ['potatoCommanderJudgmentPipLitArt', 'HUD 下黑水计数十字（点亮）']
-      ];
-
-      this.debugPotatoCommanderKey =
-        this.input.keyboard.addKey(
-          Phaser.Input.Keyboard.KeyCodes.P
-        );
-
-      this.debugPotatoCommanderKey.on('down', () => {
-        if (this.finished || this.isChoosingUpgrade) return;
-
-        // P 本身就是一次开发者交互。即使浏览器音频解锁 Promise 还没结束，
-        // 也直接放行 gameplay update，保证土豆指挥官一召唤就能立即运行 AI。
-        this.startGameplayExperience();
-        if (this.waitingForGameStart) {
-          this.waitingForGameStart = false;
-          this.gameStartInitiated = false;
-          (this.gameStartGate ?? []).forEach((item) => item?.destroy());
-          this.gameStartGate = null;
-          this.adaptiveMusic?.start?.();
-        }
-
-        if (this.potatoCommander?.active) {
-          this.showScreenNotice(
-            '「🥔 土豆指挥官已经在场」',
-            '#f2d58a'
-          );
-          return;
-        }
-
-        if (this.bossActive) {
-          this.showScreenNotice(
-            '「当前已有Boss，请先结束当前战斗」',
-            '#ffb0b0'
-          );
-          return;
-        }
-
-        // Final Boss 调试模式：避免初期经验不足导致无法测试后续阶段。
-        this.player.debugInvincible = true;
-        this.player.hp = this.player.maxHp;
-
-        this.showScreenNotice(
-          '「测试模式：主角无敌」',
-          '#a9f7c5'
-        );
-
-        const commander =
-          this.spawnSystem.spawnPotatoCommander({
-            force: true,
-            debug: true
-          });
-
-        if (commander) {
-          this.showScreenNotice(
-            '「P：已召唤土豆指挥官」',
-            '#f2d58a'
-          );
-        }
-      });
-
-      this.debugPotatoShiftKey = this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.SHIFT
-      );
-
-      // 普通 1/2/3/4：保留原来的静态阶段检查。
-      // Shift+1/2/3/4：直接进入对应实战阶段，AI / 技能继续运行；Boss 不在场时会自动召唤。
-      [
-        [Phaser.Input.Keyboard.KeyCodes.ONE, 0, '1', '童年回忆'],
-        [Phaser.Input.Keyboard.KeyCodes.TWO, 1, '2', '事必躬亲'],
-        [Phaser.Input.Keyboard.KeyCodes.THREE, 2, '3', '圣光普照'],
-        [Phaser.Input.Keyboard.KeyCodes.FOUR, 3, '4', '神恩归一']
-      ].forEach(([keyCode, phaseIndex, keyLabel, phaseLabel]) => {
-        const key = this.input.keyboard.addKey(keyCode);
-        key.on('down', () => {
-          if (this.finished || this.isChoosingUpgrade) return;
-
-          const liveJump = this.debugPotatoShiftKey?.isDown;
-
-          if (!this.potatoCommander?.active) {
-            if (!liveJump) {
-              this.showScreenNotice('「请先按 P 召唤土豆指挥官」', '#f2d58a');
-              return;
-            }
-
-            this.startGameplayExperience();
-            if (this.waitingForGameStart) {
-              this.waitingForGameStart = false;
-              this.gameStartInitiated = false;
-              (this.gameStartGate ?? []).forEach((item) => item?.destroy());
-              this.gameStartGate = null;
-              this.adaptiveMusic?.start?.();
-            }
-
-            if (this.bossActive) {
-              this.showScreenNotice('「当前已有Boss，请先结束当前战斗」', '#ffb0b0');
-              return;
-            }
-
-            this.player.debugInvincible = true;
-            this.player.hp = this.player.maxHp;
-            this.spawnSystem.spawnPotatoCommander({ force: true, debug: true });
-          }
-
-          if (!this.potatoCommander?.active) {
-            this.showScreenNotice('「土豆指挥官测试召唤失败」', '#ff9b9b');
-            return;
-          }
-
-          // Test mode is always invincible, including when the boss was spawned before
-          // the number key was pressed.
-          this.player.debugInvincible = true;
-          this.player.hp = this.player.maxHp;
-
-          if (liveJump) {
-            // 直接阶段跳转属于测试操作，清掉刚召唤/上一阶段尚未播完的 Boss 文字，
-            // 避免先显示 S1 再排队显示目标阶段。
-            this.importantText?.clearSource(this.potatoCommander);
-            this.potatoCommander.debugJumpToGameplayPhase?.(phaseIndex);
-            this.showScreenNotice(
-              `「Shift+${keyLabel}：实战直达阶段${phaseIndex + 1} · ${phaseLabel}」`,
-              '#a9f7c5'
-            );
-            return;
-          }
-
-          this.potatoCommander.debugForceInspectionPhase?.(phaseIndex);
-          this.showScreenNotice(
-            `「${keyLabel}：调试锁定阶段${phaseIndex + 1} · ${phaseLabel}」`,
-            '#f2d58a'
-          );
-        });
-      });
-
-      // 0 exits the forced-stage inspection and resumes the existing boss AI.
-      this.debugPotatoResumeKey = this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.ZERO
-      );
-      this.debugPotatoResumeKey.on('down', () => {
-        if (!this.potatoCommander?.active) return;
-        this.potatoCommander.debugExitInspection?.();
-        this.showScreenNotice('「0：退出阶段检查，恢复Boss行动」', '#f2d58a');
-      });
-
-      // M / N browse every locked Potato Commander PNG in an isolated screen-space
-      // preview. V closes it. The preview never changes the live boss sprite or physics.
-      this.debugPotatoPrevAssetKey = this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.M
-      );
-      this.debugPotatoNextAssetKey = this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.N
-      );
-      this.debugPotatoCloseAssetKey = this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.V
-      );
-
-      this.debugPotatoPrevAssetKey.on('down', () => {
-        if (!this.finished && !this.isChoosingUpgrade) {
-          this.showPotatoCommanderDebugAsset(-1);
-        }
-      });
-      this.debugPotatoNextAssetKey.on('down', () => {
-        if (!this.finished && !this.isChoosingUpgrade) {
-          this.showPotatoCommanderDebugAsset(1);
-        }
-      });
-      this.debugPotatoCloseAssetKey.on('down', () => {
-        this.closePotatoCommanderDebugAsset();
-      });
-
-    }
 
     this.input.keyboard.on('keydown-Q', () => {
       if (!this.finished && !this.isChoosingUpgrade && !this.endingSequenceActive) {
@@ -1039,12 +657,10 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // Desktop R is context-sensitive: during a live run it triggers
-    // 「双向奔赴」; after defeat / run end it keeps the existing restart action.
     this.input.keyboard.on('keydown-R', () => {
       if (this.endingSequenceActive) return;
       if (this.player.hp <= 0 || this.finished) {
-        this.registry.set('internalTestAutoStart', true);
+        this.registry.set('autoStartRun', true);
         this.scene.restart();
         return;
       }
@@ -1054,14 +670,10 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 手机 / 触屏：游戏结束后点击任意空白区域也可以重新开始。
-    // 游戏进行中不触发，避免与普通触控操作冲突。
     this.input.on('pointerdown', (pointer, currentlyOver) => {
       if (!this.finished) return;
-      // Internal Test 结算必须通过明确按钮操作，避免点到空白处意外直接重开。
-      if (this.internalTestSettlementActive) return;
+      if (false) return;
 
-      // 如果点在交互 UI 上，交给 UI 自己处理；空白区域则直接重开。
       const overInteractive = Array.isArray(currentlyOver)
         && currentlyOver.some((obj) => obj?.input?.enabled);
 
@@ -1077,8 +689,6 @@ export default class GameScene extends Phaser.Scene {
       || this.endingSequenceActive
     ) return;
 
-    // 升级选择采用“半暂停”：Arcade Physics 维持约 25% 慢动作，音乐不断，
-    // 但 AI / 刷怪 / 攻击逻辑不继续推进。画面仍有运动，因此不会像硬暂停那样切断节奏。
     if (this.isChoosingUpgrade) {
       this.updateFinalBossActorDepthSort();
       this.updatePotatoCommanderOcclusion(delta * 0.25);
@@ -1091,14 +701,10 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
 
-    // 0.9.1：首个用户手势解锁音频前，关卡与节拍时钟都不前进。
-    // 这样玩家看到的第一个游戏帧就是音乐的第一个强拍。
     if (this.waitingForGameStart) return;
 
     if (this.tryPresentPendingUpgradeChoice()) return;
 
-    // Phaser 的全局 time 会在升级界面继续增长；这里只累计实际游玩 delta。
-    // 因此选择升级花多久，都不会推进关卡计时、刷怪阶段或 Boss 登场时间。
     this.gameplayElapsedMs += delta;
 
     if (this.player.hp <= 0) {
@@ -1118,49 +724,33 @@ export default class GameScene extends Phaser.Scene {
 
     this.spawnSystem.update(time, elapsedSeconds);
 
-    this.enemies.children.iterate((enemy) => {
-      if (!enemy?.active) return;
-      // 大发卖进入纯演绎后，小怪统一交给撤离状态：先自然跑出红水晶区域，
-      // 到外围后小范围游荡/驻足，不再向主角聚集，也不会继续放技能。
-      if (this.updateDuckQueenDafamaiMinionEvacuation(enemy, time)) return;
-      enemy.updateAI(time);
-    });
+      this.enemies.children.iterate((enemy) => {
+        if (!enemy?.active) return;
+        if (this.updateDuckQueenDafamaiMinionEvacuation(enemy, time)) return;
+        enemy.updateAI(time);
+      });
 
-    // Internal Test v1.0.5：普通小怪追逐时加入轻量 separation steering。
-    // 只改变“扎堆重叠”的视觉，不改各怪原有追击目标、基础速度或伤害。
     this.applyMinionSeparationSteering(time);
 
-    // 0.9.2-dev14.5.7：割草战斗优先保持移动流畅，不再持续做角色位置软推挤。
-    // 前后关系交给脚底 Y-sort；Boss 真正挡住暗月时用渐隐解决视觉遮挡。
     this.updateFinalBossActorDepthSort();
     this.updatePotatoCommanderOcclusion(delta);
     this.updateDuckQueenOcclusion(delta);
     this.updatePlayerOutlineVisual();
     this.updatePlayerGrowthAura(time);
 
-    // 重要角色台词采用轻微延迟跟随：先更新角色位置，再让文字慢半拍追上。
     this.importantText?.update(delta);
-
     this.updateDuckQueenUltimate(time);
     this.updateDuckQueenEcology(time);
     this.updateDuckQueenCharm(time, delta);
     this.updateDuckQueenFishNet(time);
     this.updateDuckQueenGrapple(time);
-    // 最后一层移动保险：所有技能/生态状态更新完成后再检查一次。
-    // 非贴贴硬锁状态下，女王鸭不允许因为旧 flag / body.moves / 零速度残留而站桩。
     this.duckQueen?.ensureContinuousMotion?.(time);
     this.updateDuckQueenDrainVisual(time);
     this.updateDuckQueenPinkPuddles(time);
     this.updateDuckQueenPinkStains(time);
     this.updateDuckQueenDazeVisual(time);
     this.updateBossHud();
-    this.updateGrowthDebugPanel(time);
-    this.updateDuckQueenDebugPanel(time);
-
     this.updateXpMagnet();
-
-    // 蓝心投喂 / 「双向奔赴」必须每帧更新。
-    // 0.8.7 中漏掉了这个调用，导致蓝心永远不会生成。
     this.updateSupportHearts(time);
     this.updatePlayerPoison(delta);
 
@@ -1173,15 +763,13 @@ export default class GameScene extends Phaser.Scene {
     this.cleanupPotatoCommanderCrossProjectiles(time);
 
     this.updatePlayerAoe(time);
-    this.updateElectricCastAnchors();
     this.updateElectricRadiance(time);
     this.updateBeatChargeIndicator();
     this.updatePlayerOrbitCrescent(time, delta);
     if (time >= this.nextShotAt) this.autoFire(time);
+    this.updateElectricCastAnchors();
     this.cleanupBullets(time);
 
-    // 0.6 开始不再在 10:00 自动通关。
-    // 9:00 后出现「土豆指挥官」，击败 Final Boss 才真正结算。
     this.updateHud(elapsedSeconds, time);
   }
 
@@ -1215,7 +803,6 @@ export default class GameScene extends Phaser.Scene {
 
     if (candidates.length < 2) return;
 
-    // Spatial hash keeps this approximately linear even when roach reproduction creates a crowd.
     const cellSize = 48;
     const grid = new Map();
     const cellKey = (cx, cy) => `${cx},${cy}`;
@@ -1304,8 +891,6 @@ export default class GameScene extends Phaser.Scene {
     this.playerAuraBlueGlow?.destroy?.();
     this.playerAuraRedGlow?.destroy?.();
 
-    // dev14.21.4.1：常驻 Aura 不再使用几何圆形。
-    // 蓝 / 红两层都改成贴着主角真实轮廓的放大剪影，避免高级别出现明显“套圈”。
     const auraTexture = this.player.texture?.key || 'playerArt';
     this.playerAuraBlueGlow = this.add.sprite(this.player.x, this.player.y, auraTexture)
       .setOrigin(this.player.originX, this.player.originY)
@@ -1337,7 +922,6 @@ export default class GameScene extends Phaser.Scene {
 
   getPlayerOutlineBaseAlpha() {
     const level = Math.max(1, Number(this.level) || 1);
-    // dev14.21.4.5：轮廓不继续加宽，只通过亮度和 Lv.20 / Lv.40 阶段跃升增强存在感。
     const linear = Phaser.Math.Clamp((level - 1) * 0.0048, 0, 0.125);
     const milestone = (level >= 20 ? 0.035 : 0) + (level >= 40 ? 0.045 : 0);
     return Phaser.Math.Clamp(0.060 + linear + milestone, 0.060, 0.285);
@@ -1347,6 +931,12 @@ export default class GameScene extends Phaser.Scene {
     if (!this.player?.active || !this.playerOutline?.active) return;
 
     const outline = this.playerOutline;
+    if (this.player.visible === false || (Number(this.player.alpha) || 0) <= 0.001) {
+      outline.setVisible(false);
+      return;
+    }
+    outline.setVisible(true);
+
     const textureKey = this.player.texture?.key || 'playerArt';
     if (outline.texture?.key !== textureKey && this.textures.exists(textureKey)) {
       outline.setTexture(textureKey);
@@ -1360,7 +950,6 @@ export default class GameScene extends Phaser.Scene {
       .setAngle(this.player.angle);
 
     const level = Math.max(1, Number(this.level) || 1);
-    // dev14.21.4.3：升级只让轮廓更亮，不再让剪影越升越宽。
     const outlineScale = Phaser.Math.Clamp(1.026 + (level - 1) * 0.0005, 1.026, 1.036);
     outline.setDisplaySize(
       Math.abs(Number(this.player.displayWidth) || 60) * outlineScale,
@@ -1374,14 +963,11 @@ export default class GameScene extends Phaser.Scene {
       0.38
     ));
 
-    // 常态放在暗月本体后面；Boss 渐隐后，轮廓会自然透出来，不需要额外盖到所有怪物前层。
     outline.setDepth((Number(this.player.depth) || 10) - 0.02);
   }
 
   getPlayerAuraGrowthState() {
     const level = Math.max(1, Number(this.level) || 1);
-    // dev14.21.4.5：Aura 继续保持“贴身而不是变宽”，强度改为带里程碑的成长曲线。
-    // Lv.10 解锁蓝色能量，Lv.15 解锁红色能量；Lv.20 / Lv.40 各明显跳一档。
     const growth = Phaser.Math.Clamp((level - 1) / 39, 0, 1);
     const auraTier = level >= 40 ? 3 : level >= 20 ? 2 : level >= 10 ? 1 : 0;
     const evolutionStage = level >= 40 ? 2 : level >= 20 ? 1 : 0;
@@ -1406,8 +992,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getPlayerEvolutionStage(level = Math.max(1, Number(this.level) || 1)) {
-    // 预留给后续正式角色 PNG：Lv.20 第一阶段、Lv.40 第二阶段。
-    // 本版只建立阶段钩子，不替换角色母版。
     if (level >= 40) return 2;
     if (level >= 20) return 1;
     return 0;
@@ -1452,7 +1036,6 @@ export default class GameScene extends Phaser.Scene {
       redUnlocked,
       blueProgress,
       redProgress,
-      // 粒子数量本身随等级增加；Lv.20 / Lv.40 再各跳一档。
       blueParticleCount: blueUnlocked
         ? Phaser.Math.Clamp(1 + Math.floor((level - 10) / 4) + tier20 + tier40 * 2, 1, 10)
         : 0,
@@ -1482,6 +1065,11 @@ export default class GameScene extends Phaser.Scene {
     const red = this.playerAuraRedGlow;
     if (!blue?.active || !red?.active) return;
 
+    const playerVisualVisible = this.player.visible !== false && (Number(this.player.alpha) || 0) > 0.001;
+    blue.setVisible(playerVisualVisible);
+    red.setVisible(playerVisualVisible);
+    if (!playerVisualVisible) return;
+
     const { level, growth, auraTier, blueEnergy, redEnergy, milestoneBoost, overdrive } = this.getPlayerAuraGrowthState();
     const pulse = 0.5 + 0.5 * Math.sin(time * (0.0044 + growth * 0.0010));
     const playerSize = Math.max(
@@ -1489,8 +1077,6 @@ export default class GameScene extends Phaser.Scene {
       Math.abs(Number(this.player.displayHeight) || 60)
     );
 
-    // dev14.21.4.3：剪影光只做“贴边亮度”，不再靠持续外扩表达升级。
-    // 真正的高等级成长感交给 Lv.10+ 蓝短电弧 / Lv.15+ 红短电弧和粒子。
     const textureKey = this.player.texture?.key || 'playerArt';
     for (const aura of [blue, red]) {
       if (aura.texture?.key !== textureKey && this.textures.exists(textureKey)) aura.setTexture(textureKey);
@@ -1505,7 +1091,6 @@ export default class GameScene extends Phaser.Scene {
     const playerW = Math.max(1, Math.abs(Number(this.player.displayWidth) || playerSize));
     const playerH = Math.max(1, Math.abs(Number(this.player.displayHeight) || playerSize));
 
-    // 蓝色剪影严格贴身：最高也只比本体略宽，不再出现“第二个人形外壳”。
     const blueScale = 1.014 + growth * 0.006 + overdrive * 0.005;
     const blueTierBoost = auraTier >= 3 ? 0.045 : auraTier >= 2 ? 0.024 : auraTier >= 1 ? 0.010 : 0;
     blue
@@ -1520,8 +1105,6 @@ export default class GameScene extends Phaser.Scene {
       )
       .setDepth((Number(this.player.depth) || 10) - 0.045);
 
-    // 红色永久表现只走粒子 / 短电弧，避免再次形成宽红色剪影。
-    // 只有升 Key overdrive 的瞬间允许极轻的贴身红边。
     const redScale = 1.016 + overdrive * 0.006;
     red
       .setDisplaySize(playerW * redScale, playerH * redScale)
@@ -1621,7 +1204,6 @@ export default class GameScene extends Phaser.Scene {
 
   spawnPlayerAuraArc(colorMode = 'blue', strength = 0.5) {
     if (!this.player?.active) return;
-    // 蓝 / 红都使用局部折线式短电弧。任何等级都不沿圆周连成环。
     const isRed = colorMode === 'red';
     const angle = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
     const rx = 23 + strength * 5;
@@ -1715,7 +1297,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 竖向蓝白扫光让“升级”有明确的向上感，不修改人物位置。
     [-12, 0, 12].forEach((offsetX, index) => {
       const streak = this.trackPlayerAuraTransientFx(
         this.add.rectangle(
@@ -1783,9 +1364,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getKeyUpVfxGroupAnchor(player = this.player) {
-    // 主 VFX 层统一以玩家脚底为“地面基线”。
-    // 每张素材先用自己的 pivot 把内部地面亮带对齐到这个基线，
-    // 再由 KEY_UP_VFX_GROUP_Y_OFFSET 一次性调整整组相对人物的高度。
     const feet = getPlayerVisualAnchor(player, 'feet');
     return {
       x: feet.x,
@@ -1839,8 +1417,6 @@ export default class GameScene extends Phaser.Scene {
     };
     this.keyUpChargeVfxState = state;
 
-    // 关键修正：ground / back / front 的内部地面基线先通过各自 pivot 对齐，
-    // 然后三层都落到同一个脚底 group anchor；这样组内高度不会再互相跳。
     state.followEvent = this.time.addEvent({
       delay: 16,
       loop: true,
@@ -1880,7 +1456,6 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Cubic.Out'
     });
 
-    // 小焰点也围绕同一个 group anchor 生成，避免粒子中心和 PNG 中心分家。
     for (let i = 0; i < 16; i += 1) {
       const delay = 90 + i * 24;
       this.time.delayedCall(delay, () => {
@@ -1950,7 +1525,6 @@ export default class GameScene extends Phaser.Scene {
     const playerDepth = Number(player.depth) || 10;
     const group = this.getKeyUpVfxGroupAnchor(player);
 
-    // dev14.21.8.6.4.4：只调整最终 burst 的高度；其它层保持当前已确认位置。
     const burst = this.add.image(
       group.x,
       group.y + KEY_UP_BURST_Y_OFFSET,
@@ -1983,7 +1557,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // ground / back / front / burst 共享同一条脚底基线；这里只扩大 ground，不改变基线高度。
     const state = this.keyUpChargeVfxState;
     if (state?.ground?.active) {
       const groundFullScale = this.getKeyUpVfxUniformScale(
@@ -2029,7 +1602,6 @@ export default class GameScene extends Phaser.Scene {
     state?.followEvent?.remove?.(false);
     if (this.keyUpChargeVfxState === state) this.keyUpChargeVfxState = null;
 
-    // 爆发碎片也从整组统一中心外扩，避免视觉中心再次漂移。
     for (let i = 0; i < 20; i += 1) {
       const angle = (Math.PI * 2 * i) / 20 + Phaser.Math.FloatBetween(-0.10, 0.10);
       const travel = Phaser.Math.Between(
@@ -2068,7 +1640,6 @@ export default class GameScene extends Phaser.Scene {
     if (this.commanderSkySmashActive) return false;
     if (Number.isFinite(player.xiafanVisualDepth)) return false;
 
-    // 只有 Boss 的脚底排序在暗月前面时，才可能真正“盖住”暗月。
     if ((Number(commander.depth) || 0) <= (Number(player.depth) || 0) + 0.001) return false;
 
     const playerWidth = Math.abs(Number(player.displayWidth) || 60);
@@ -2079,7 +1650,6 @@ export default class GameScene extends Phaser.Scene {
     const dx = Math.abs(commander.x - player.x);
     const dy = Math.abs(commander.y - player.y);
 
-    // 用视觉主体区域而不是完整 PNG 外框，避免透明留白导致 Boss 过早变淡。
     const overlapX = dx < bossWidth * 0.29 + playerWidth * 0.30;
     const overlapY = dy < bossHeight * 0.27 + playerHeight * 0.36;
 
@@ -2103,7 +1673,6 @@ export default class GameScene extends Phaser.Scene {
         || enemy.enemyType === 'plagueCat'
       ) continue;
 
-      // 粗筛：绝大多数远处小怪不进入后续视觉重叠计算。
       const coarseDx = commander.x - enemy.x;
       const coarseDy = commander.y - enemy.y;
       if (coarseDx * coarseDx + coarseDy * coarseDy > 240 * 240) continue;
@@ -2113,7 +1682,6 @@ export default class GameScene extends Phaser.Scene {
       const dx = Math.abs(commander.x - enemy.x);
       const dy = Math.abs(commander.y - enemy.y);
 
-      // 只看真正进入 Boss 视觉主体的普通小怪，透明 PNG 留白不计入。
       const overlapX = dx < bossWidth * 0.27 + enemyWidth * 0.28;
       const overlapY = dy < bossHeight * 0.24 + enemyHeight * 0.30;
       if (overlapX && overlapY) return true;
@@ -2129,7 +1697,6 @@ export default class GameScene extends Phaser.Scene {
     if (!queen?.active || queen.isDead || !player?.active) return false;
     if (Number.isFinite(player.xiafanVisualDepth)) return false;
 
-    // 与土豆指挥官一致：只有脚底/Y-sort 已把 Boss 放到主角前面时才渐隐。
     if ((Number(queen.depth) || 0) <= (Number(player.depth) || 0) + 0.001) return false;
 
     const playerWidth = Math.abs(Number(player.displayWidth) || 60);
@@ -2139,7 +1706,6 @@ export default class GameScene extends Phaser.Scene {
     const dx = Math.abs(queen.x - player.x);
     const dy = Math.abs(queen.y - player.y);
 
-    // 只按角色主体估算，不用整个透明 PNG 外框。
     const overlapX = dx < bossWidth * 0.29 + playerWidth * 0.30;
     const overlapY = dy < bossHeight * 0.27 + playerHeight * 0.36;
     return overlapX && overlapY;
@@ -2193,12 +1759,10 @@ export default class GameScene extends Phaser.Scene {
     this.playerOccludedByDuckQueen = playerOccluded;
     if (!queen?.active || queen.isDead) return;
 
-    // 与土豆指挥官完全同级：盖到主角时明显渐隐；普通小怪穿过时轻度虚化。
     const targetAlpha = playerOccluded ? 0.68 : (minionOverlap ? 0.85 : 1);
     const currentAlpha = Phaser.Math.Clamp(Number(queen.alpha) || 1, 0, 1);
     const blend = Phaser.Math.Clamp(1 - Math.exp(-Math.max(1, delta) / 95), 0.08, 0.36);
 
-    // 受击闪白/透明度反馈优先，不让遮挡系统把 70ms hit flash 当场抹掉。
     if (currentAlpha < 0.60) return;
 
     queen.setAlpha(
@@ -2223,7 +1787,6 @@ export default class GameScene extends Phaser.Scene {
     if (!commander?.active || commander.isDead) return;
     if (this.commanderSkySmashActive) return;
 
-    // 暗月可见性优先级最高；普通小怪穿过 Boss 时只做轻度虚化。
     const targetAlpha = playerOccluded ? 0.68 : (minionOverlap ? 0.85 : 1);
     const currentAlpha = Phaser.Math.Clamp(Number(commander.alpha) || 1, 0, 1);
     const blend = Phaser.Math.Clamp(1 - Math.exp(-Math.max(1, delta) / 95), 0.08, 0.36);
@@ -2257,9 +1820,6 @@ export default class GameScene extends Phaser.Scene {
     const applyDepth = (actor) => {
       if (!actor?.active || actor.isDead) return;
 
-      // 下黑水演绎期间，场中主角必须始终压在所有坑洞主体之上。
-      // 不能让常规 Boss Y-sort 每帧把 19960 的演绎层重置回 11.x，
-      // 否则 19890/19920 的坑洞会重新遮住人物。
       if (actor === this.player && this.commanderBlackwaterPreviewActive === true) {
         if (!Number.isFinite(actor._preFinalBossDepth)) {
           actor._preFinalBossDepth = Number(actor.depth) || 10;
@@ -2268,14 +1828,20 @@ export default class GameScene extends Phaser.Scene {
         return;
       }
 
-      // 下凡受击期间主角被临时提到前层，不让 Y-sort 把这个特效覆盖掉。
+      if (actor === this.player && this.duckQueenUltimateCutsceneActive === true) {
+        if (!Number.isFinite(actor._preFinalBossDepth)) {
+          actor._preFinalBossDepth = Number(actor.depth) || 10;
+        }
+        actor.setDepth(40);
+        return;
+      }
+
       if (actor === this.player && Number.isFinite(this.player.xiafanVisualDepth)) return;
 
       if (!Number.isFinite(actor._preFinalBossDepth)) {
         actor._preFinalBossDepth = Number(actor.depth) || 10;
       }
 
-      // 「净场」飞行中的小土豆临时进入空中层，避免被 Boss / 地面小怪截断。
       if (actor.cleanseFlightActive === true) {
         actor.setDepth(12.45);
         return;
@@ -2283,9 +1849,6 @@ export default class GameScene extends Phaser.Scene {
 
       const normalizedY = Phaser.Math.Clamp(actor.y / GAME.WORLD_HEIGHT, 0, 1);
 
-      // 主 Boss 战统一采用两个深度带：
-      // 普通小怪永远低于当前 Boss；暗月与当前 Boss 同处高层带，再由 Y 决定前后。
-      // 女王鸭与土豆指挥官因此拥有完全一致的穿插/遮挡逻辑。
       if (actor === this.player || actor === boss) {
         actor.setDepth(11 + normalizedY * 0.90);
       } else {
@@ -2329,7 +1892,6 @@ export default class GameScene extends Phaser.Scene {
   maintainCommanderFollowerRing(commander = this.potatoCommander) {
     if (!commander?.active || commander.isDead || !this.enemies) return 0;
 
-    // 信徒环只属于 S4。离开该阶段或 Boss 不存在时，所有土豆恢复普通前线 AI。
     if (commander.phaseIndex < 3) {
       this.enemies.children.iterate((enemy) => {
         if (enemy?.enemyType === 'potato' && enemy.commanderFollower === true) {
@@ -2351,7 +1913,6 @@ export default class GameScene extends Phaser.Scene {
         && !potato.isBlessedToxicPotato
       ));
 
-    // 极端情况下超过上限时，释放离 Boss 最远的多余信徒，避免重新形成一大坨。
     if (followers.length > maxFollowers) {
       followers
         .sort((a, b) => (
@@ -2390,7 +1951,6 @@ export default class GameScene extends Phaser.Scene {
         });
       });
 
-      // 优先保留离指挥官近、且已经受过部分赐福但尚未剧毒化的土豆作为“信徒”。
       candidates.sort((a, b) => (
         b.growth - a.growth
         || a.distanceSq - b.distanceSq
@@ -2400,7 +1960,6 @@ export default class GameScene extends Phaser.Scene {
       candidates.slice(0, needed).forEach(({ potato }) => followers.push(potato));
     }
 
-    // 每次维护重新排槽位，让死亡 / 被净场扫走后不会留下大面积空位。
     const total = Math.max(1, followers.length);
     followers.forEach((potato, index) => {
       potato.setCommanderFollower?.(commander, index, total);
@@ -2437,7 +1996,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 特殊土豆优先被“投送”；同一形态内再选择离 Boss 最近的。
     candidates.sort((a, b) => (
       b.growth - a.growth
       || a.distanceSq - b.distanceSq
@@ -2485,7 +2043,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 「她赐福得越深，最后越先被她拿回来」：剧毒 > 发芽 > 肌肉 > 普通。
     candidates.sort((a, b) => (
       b.follower - a.follower
       || b.growth - a.growth
@@ -2594,7 +2151,6 @@ export default class GameScene extends Phaser.Scene {
     if (!potato?.active || potato.isDead || !this.player?.active) return;
 
     const config = ENEMIES.potatoCommander;
-    // 被「净场」扫出去的信徒正式转为前线单位，落地后不会再折返 Boss 身边。
     potato.clearCommanderFollower?.();
     const player = this.player;
     const startX = potato.x;
@@ -2745,7 +2301,6 @@ export default class GameScene extends Phaser.Scene {
     const previousFlipX = commander.flipX;
     const playerIsLeft = this.player?.active && this.player.x < commander.x;
     commander.showCleanseSkillArt?.();
-    // S4「净场」正式 PNG 具有明确挥扫方向：朝主角所在侧挥舞，必要时镜像。
     if (commander.phaseIndex >= 3) {
       commander.setFlipX(playerIsLeft);
     }
@@ -2851,7 +2406,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('roach', 32, 30);
     g.clear();
 
-    // 瘟疫猫：绿色猫形占位图。
     g.fillStyle(0x78c96c, 1);
     g.fillEllipse(24, 22, 32, 24);
     g.fillTriangle(12, 13, 16, 2, 21, 13);
@@ -2862,7 +2416,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('plagueCat', 48, 40);
     g.clear();
 
-    // 女王鸭：与普通鸭完全不同的柔和大体型占位图。
     g.fillStyle(0xffc9e0, 1);
     g.fillEllipse(42, 35, 58, 38);
     g.fillCircle(66, 25, 18);
@@ -2878,8 +2431,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('duckQueen', 98, 58);
     g.clear();
 
-    // 女王鸭普通攻击「扔橘柑」：刻意保持低阶、简单的 Phaser 绘制。
-    // 不使用正式 PNG / 大型发光 / 复杂拖尾，避免抢过 Boss 高阶技能层级。
     g.fillStyle(0x6f3514, 0.95);
     g.fillCircle(16, 16, 13);
     g.fillStyle(0xf7941d, 1);
@@ -2893,8 +2444,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('queenTangerine', 32, 32);
     g.clear();
 
-    // 「蛊惑」未来会改用锁定祸心 PNG；该占位 heart 暂留给现有测试粒子，
-    // 不再作为女王鸭普通攻击。
     g.fillStyle(0xff68ad, 1);
     g.fillCircle(12, 11, 8);
     g.fillCircle(24, 11, 8);
@@ -2902,7 +2451,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('queenFanHeart', 36, 32);
     g.clear();
 
-    // 「淡季」磁带占位素材。
     g.fillStyle(0xff86be, 1);
     g.fillRoundedRect(0, 0, 52, 34, 7);
     g.fillStyle(0xffe6f1, 1);
@@ -2916,7 +2464,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('danjiCassette', 52, 34);
     g.clear();
 
-    // 女王鸭「陪我吃鱼」的三种鱼占位素材。
     g.fillStyle(0x72d2e8, 1);
     g.fillEllipse(16, 9, 24, 11);
     g.fillTriangle(4, 9, 0, 2, 0, 16);
@@ -2941,7 +2488,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('fishStinky', 38, 22);
     g.clear();
 
-    // 「圣光普照」后的发芽标记。
     g.lineStyle(4, 0x3d8a48, 1);
     g.beginPath();
     g.moveTo(11, 22);
@@ -2953,7 +2499,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('potatoSprout', 22, 24);
     g.clear();
 
-    // 「土豆指挥官」占位图：明显区别于普通土豆。
     g.fillStyle(0x8f5a2d, 1);
     g.fillEllipse(50, 42, 78, 64);
     g.fillStyle(0x6e3e24, 1);
@@ -2968,16 +2513,11 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('potatoCommander', 100, 78);
     g.clear();
 
-    // 0.9.1：「月牙」改为独立透明 PNG（assets/effects/crescent_moon.png），
-    // 不再用 Graphics 临时生成攻击主体；这里仅保留轻量拖尾贴图。
     g.fillStyle(0x94d5f3, 0.72);
     g.fillEllipse(7, 3, 13, 5);
     g.generateTexture('crescentTrail', 14, 6);
     g.clear();
 
-    // Step 3.3: 土豆指挥官普通攻击「十字」纯 Phaser 生成贴图。
-    // 竖轴明显长于横轴，保持更像宗教圣十字，而不是等长“+”。
-    // 不占用锁定 PNG 素材，也不会与「圣裁」终极技 VFX 混用。
     g.fillStyle(0xd7a93d, 0.98);
     g.fillRoundedRect(11, 1, 10, 46, 3);
     g.fillRoundedRect(2, 14, 28, 10, 3);
@@ -2989,7 +2529,6 @@ export default class GameScene extends Phaser.Scene {
     g.generateTexture('potatoCommanderCrossProjectile', 32, 48);
     g.clear();
 
-    // 经验球分级：普通青绿、精英橙色、Boss 红色。
     g.fillStyle(0x65f4d3, 1);
     g.fillTriangle(8, 0, 16, 8, 8, 16);
     g.fillTriangle(8, 0, 0, 8, 8, 16);
@@ -3033,8 +2572,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.kills[type] += count;
 
-    // Internal Test v1.0.9：每个真正计入屠杀统计的有效击杀随机 +1～2 愤怒。
-    // 统一从这里结算，避免 AOE / 特殊清场重复加愤怒。
     if (this.player?.active && !this.finished) {
       let gained = 0;
       for (let i = 0; i < count; i += 1) gained += Phaser.Math.Between(1, 2);
@@ -3148,23 +2685,221 @@ export default class GameScene extends Phaser.Scene {
   }
 
 
-  rearmComboStageSpinMilestones() {
-    COMBO_STAGE_SPIN_REWARDS.forEach((reward) => {
-      if (this.combo < reward.combo) {
-        this.comboStageSpinReady.add(reward.combo);
+  rearmComboStageSpinMilestones() {}
+
+  checkComboStageSpinMilestones() {}
+
+  getComboStageSpinReward(comboValue = this.combo) {
+    const combo = Math.max(0, Math.floor(Number(comboValue) || 0));
+    const comboLevel = Phaser.Math.Clamp(Math.floor(combo / 10), 0, 6);
+    const stageIndex = combo >= 20 ? 2 : combo >= 10 ? 1 : 0;
+    const stageConfig = STAGE_SPIN_VFX.stages?.[stageIndex] ?? STAGE_SPIN_VFX.stages?.[0];
+    const radiusScale = Math.max(0.001, Number(stageConfig?.radiusScale) || 1);
+
+    const growthStart = PLAYER.STAGE_SPIN_SIZE_GROWTH_START_COMBO ?? 40;
+    const growthComboStep = Math.max(1, PLAYER.STAGE_SPIN_SIZE_GROWTH_COMBO_STEP ?? 10);
+    const growthSteps = combo >= growthStart
+      ? 1 + Math.floor((combo - growthStart) / growthComboStep)
+      : 0;
+    const growthScale = Math.min(
+      PLAYER.STAGE_SPIN_SIZE_MAX_SCALE ?? 1.20,
+      1 + Math.max(0, growthSteps) * (PLAYER.STAGE_SPIN_SIZE_GROWTH_PER_STEP ?? 0.05)
+    );
+    const baseDisplaySize = PLAYER.STAGE_SPIN_BASE_DISPLAY_SIZE ?? 160;
+
+    const effectRadius = (baseDisplaySize * growthScale) / radiusScale;
+
+    const damageTable = PLAYER.STAGE_SPIN_DAMAGE_BY_COMBO_LEVEL ?? [6, 7, 8, 9, 10, 11, 12];
+    const damage = Math.max(1, Number(damageTable[comboLevel]) || PLAYER.STAGE_SPIN_DAMAGE || 6);
+
+    return {
+      combo,
+      comboLevel,
+      stageIndex,
+      effectRadius,
+      displaySize: baseDisplaySize * growthScale,
+      growthScale,
+      damage,
+      label: '「舞台回旋」'
+    };
+  }
+
+  getStageSpinPixelAlphaAtWorld(sprite, worldX, worldY) {
+    if (!sprite?.active || !sprite.frame || !sprite.texture?.key) return 0;
+
+    const scaleX = Math.abs(Number(sprite.scaleX) || 0);
+    const scaleY = Math.abs(Number(sprite.scaleY) || 0);
+    if (scaleX <= 0.0001 || scaleY <= 0.0001) return 0;
+
+    const dx = worldX - sprite.x;
+    const dy = worldY - sprite.y;
+    const rotation = Number(sprite.rotation) || 0;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+
+    const localX = (cos * dx + sin * dy) / scaleX
+      + sprite.frame.width * (Number(sprite.originX) || 0.5);
+    const localY = (-sin * dx + cos * dy) / scaleY
+      + sprite.frame.height * (Number(sprite.originY) || 0.5);
+
+    if (
+      localX < 0 || localY < 0
+      || localX >= sprite.frame.width || localY >= sprite.frame.height
+    ) return 0;
+
+    return this.textures.getPixelAlpha(
+      Math.floor(localX),
+      Math.floor(localY),
+      sprite.texture.key,
+      sprite.frame.name
+    ) ?? 0;
+  }
+
+  stageSpinSpriteOverlapsEnemy(sprite, enemy) {
+    if (!sprite?.active || !enemy?.active || enemy.isDead) return false;
+
+    const spriteBounds = sprite.getBounds?.();
+    const enemyBounds = enemy.getBounds?.();
+    if (
+      spriteBounds && enemyBounds
+      && !Phaser.Geom.Intersects.RectangleToRectangle(spriteBounds, enemyBounds)
+    ) return false;
+
+    const bounds = enemyBounds ?? new Phaser.Geom.Rectangle(
+      enemy.x - Math.abs(enemy.displayWidth || 36) * 0.5,
+      enemy.y - Math.abs(enemy.displayHeight || 36) * 0.5,
+      Math.abs(enemy.displayWidth || 36),
+      Math.abs(enemy.displayHeight || 36)
+    );
+    const threshold = PLAYER.STAGE_SPIN_ALPHA_HIT_THRESHOLD ?? 20;
+    const fractions = [0.22, 0.50, 0.78];
+
+    for (const fx of fractions) {
+      for (const fy of fractions) {
+        const sampleX = bounds.left + bounds.width * fx;
+        const sampleY = bounds.top + bounds.height * fy;
+        if (this.getStageSpinPixelAlphaAtWorld(sprite, sampleX, sampleY) >= threshold) {
+          return true;
+        }
       }
+    }
+    return false;
+  }
+
+  applyStageSpinSpriteHits(sprite, damage, hitEnemies) {
+    if (!sprite?.active || !Number.isFinite(damage) || damage <= 0) return;
+    const victims = [];
+
+    this.enemies?.children?.iterate?.((enemy) => {
+      if (!enemy?.active || enemy.isDead || hitEnemies.has(enemy)) return;
+      if (this.stageSpinSpriteOverlapsEnemy(sprite, enemy)) victims.push(enemy);
+    });
+
+    victims.forEach((enemy) => {
+      if (!enemy?.active || enemy.isDead || hitEnemies.has(enemy)) return;
+      hitEnemies.add(enemy);
+      const killed = enemy.receiveDamage(damage);
+      if (killed) this.killEnemy(enemy);
     });
   }
 
-  checkComboStageSpinMilestones(previousCombo) {
-    COMBO_STAGE_SPIN_REWARDS.forEach((reward) => {
-      if (
-        previousCombo < reward.combo
-        && this.combo >= reward.combo
-        && this.comboStageSpinReady.has(reward.combo)
-      ) {
-        this.comboStageSpinReady.delete(reward.combo);
-        this.triggerComboStageSpinReward(reward);
+  spawnStageSpinStage(
+    stageConfig,
+    effectRadius = this.player.stageSpinRadius,
+    { damage = 0, enableDamage = false } = {}
+  ) {
+    if (!this.player?.active || this.finished) return;
+
+    const center = this.getStageSpinCenter();
+    const displaySize = Math.max(1, effectRadius * stageConfig.radiusScale);
+
+    const back = this.vfx.spawnImage(stageConfig.key, center.x, center.y, {
+      displayWidth: displaySize,
+      displayHeight: displaySize,
+      depth: 9,
+      alpha: 0,
+      blendMode: 'ADD'
+    });
+    if (!back) return;
+
+    const front = this.vfx.spawnImage(stageConfig.key, center.x, center.y, {
+      displayWidth: displaySize,
+      displayHeight: displaySize,
+      depth: 11,
+      alpha: 0,
+      blendMode: 'ADD'
+    });
+
+    if (front) {
+      const cropY = Math.round(front.frame.height * STAGE_SPIN_VFX.frontCropRatio);
+      front.setCrop(0, cropY, front.frame.width, front.frame.height - cropY);
+    }
+
+    const trails = stageConfig.trailOffsets.map((offset, index) => {
+      const trailScale = 1 - (index + 1) * 0.018;
+      return this.vfx.spawnImage(stageConfig.key, center.x, center.y, {
+        displayWidth: displaySize * trailScale,
+        displayHeight: displaySize * trailScale,
+        depth: 8,
+        alpha: 0,
+        blendMode: 'ADD'
+      });
+    }).filter(Boolean);
+
+    const objects = [back, front, ...trails].filter(Boolean);
+    const baseScales = new Map(objects.map((obj) => [obj, { x: obj.scaleX, y: obj.scaleY }]));
+    const hitEnemies = new Set();
+
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: stageConfig.durationMs,
+      ease: 'Linear',
+      onUpdate: (tween) => {
+        if (!this.player?.active || this.finished) return;
+
+        const progress = tween.getValue();
+        const anchor = this.getStageSpinCenter();
+        const angle = Phaser.Math.Linear(stageConfig.startAngle, stageConfig.endAngle, progress);
+        const envelope = this.getStageSpinAlphaEnvelope(progress);
+        const pulse = 1 + Math.sin(Math.PI * progress) * stageConfig.pulseScale;
+
+        objects.forEach((obj) => obj?.active && obj.setPosition(anchor.x, anchor.y));
+
+        if (back?.active) {
+          const base = baseScales.get(back);
+          back
+            .setAngle(angle)
+            .setScale(base.x * pulse, base.y * pulse)
+            .setAlpha(stageConfig.alpha * 0.72 * envelope);
+        }
+
+        if (front?.active) {
+          const base = baseScales.get(front);
+          front
+            .setAngle(angle)
+            .setScale(base.x * pulse, base.y * pulse)
+            .setAlpha(stageConfig.alpha * envelope);
+        }
+
+        trails.forEach((trail, index) => {
+          if (!trail?.active) return;
+          const base = baseScales.get(trail);
+          const trailPulse = 1 + Math.sin(Math.PI * progress) * stageConfig.pulseScale * 0.65;
+          trail
+            .setAngle(angle - stageConfig.trailOffsets[index])
+            .setScale(base.x * trailPulse, base.y * trailPulse)
+            .setAlpha(stageConfig.alpha * envelope * (0.16 - index * 0.045));
+        });
+
+        if (enableDamage && envelope >= 0.16) {
+          this.applyStageSpinSpriteHits(back, damage, hitEnemies);
+        }
+      },
+      onComplete: () => {
+        objects.forEach((obj) => {
+          if (obj?.active) obj.destroy();
+        });
       }
     });
   }
@@ -3176,46 +2911,34 @@ export default class GameScene extends Phaser.Scene {
       || this.finished
       || this.isChoosingUpgrade
       || this.duckQueenGrappleActive
-    ) return;
+    ) return false;
 
     const stageConfig = STAGE_SPIN_VFX.stages[reward.stageIndex];
-    if (!stageConfig) return;
+    if (!stageConfig) return false;
 
-    const radius = Math.round(this.player.stageSpinRadius * reward.radiusScale);
-    const damage = Math.round(this.player.stageSpinDamage * reward.damageScale);
-    const knockback = Math.round(this.player.stageSpinKnockback * reward.knockbackScale);
+    this.spawnStageSpinStage(stageConfig, reward.effectRadius, {
+      damage: reward.damage,
+      enableDamage: true
+    });
 
-    this.damageEnemiesInRadius(
-      this.player.x,
-      this.player.y,
-      radius,
-      damage,
-      knockback
-    );
-
-    if (reward.clearProjectiles) {
-      this.clearEnemyProjectilesInRadius(
-        this.player.x,
-        this.player.y,
-        radius
+    {
+      this.showPassiveSkillImportantWorldText(
+        this.player,
+        reward.label,
+        '#9bddff',
+        reward.stageIndex === 2 ? 20 : 18,
+        { priority: 70 + reward.stageIndex, yOffset: 58 }
       );
     }
 
-    // 自动 Combo 奖励只播放当前档位对应的单张 Stage VFX；不会从 Stage 1 重新整套播放。
-    // 这样 Combo 5 保持轻量，Combo 10 更明显，Combo 20 才出现完整高潮视觉。
-    this.spawnStageSpinStage(stageConfig, radius);
-
-    this.showPassiveSkillImportantWorldText(
-      this.player,
-      reward.label,
-      '#9bddff',
-      reward.stageIndex === 2 ? 20 : 18,
-      { priority: 70 + reward.stageIndex, yOffset: 58 }
-    );
-
     if (reward.stageIndex === 2) {
-      this.cameras.main.shake(90, 0.0026);
+      this.cameras.main.shake(62, 0.0018);
     }
+    return true;
+  }
+
+  triggerBeatStageSpin() {
+    return this.triggerComboStageSpinReward(this.getComboStageSpinReward(this.combo));
   }
 
   pulseComboHud() {
@@ -3245,6 +2968,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.combo = 0;
+    this.beatChargeComboTier = 0;
     this.lastSuccessfulRhythmGameplayMs = -Infinity;
     this.rearmComboStageSpinMilestones();
 
@@ -3271,7 +2995,6 @@ export default class GameScene extends Phaser.Scene {
     const visualTop = this.player.y - Math.max(60, Math.abs(Number(this.player.displayHeight) || 60) * 0.78);
     const baseFontSize = Math.round(22 + intensity * 8 + (milestone ? 3 : 0));
     const popScale = 1.08 + intensity * 0.14 + (milestone ? 0.10 : 0);
-    // dev14.21.6.1：Combo 改用暖金 / 琥珀色系，与 EXP 和回血的 #94d5f3 蓝色反馈明确区分。
     const textColor = combo >= 80
       ? '#fff3b0'
       : combo >= 50
@@ -3400,8 +3123,6 @@ export default class GameScene extends Phaser.Scene {
     const pos = this.getBeatVfxPosition(config);
     const impactColor = strong ? 0xdff8ff : 0x9bddff;
 
-    // dev14.21.2：踩拍成功时补一个很短的“脚底横向踢开”冲击。
-    // 原本的 Beat PNG 继续负责节拍识别；这里仅强化人物真的踩下去的触地感。
     const ground = this.add.ellipse(
       pos.x,
       pos.y + 1,
@@ -3425,7 +3146,6 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => ground?.active && ground.destroy()
     });
 
-    // 左右两条极短地面速度线，只在踩中的瞬间出现；Strong Beat 稍微更远。
     [-1, 1].forEach((side) => {
       const streak = this.add.rectangle(
         pos.x + side * 7,
@@ -3543,6 +3263,58 @@ export default class GameScene extends Phaser.Scene {
       .setAlpha(0.72 + Math.sin(t * 1.7) * 0.12);
   }
 
+  getBeatChargeComboTier(comboValue = this.combo) {
+    const combo = Math.max(0, Number(comboValue) || 0);
+    if (combo < PLAYER.BEAT_CHARGE_COMBO_START) return 0;
+    const raw = 1 + Math.floor((combo - PLAYER.BEAT_CHARGE_COMBO_START) / PLAYER.BEAT_CHARGE_COMBO_STEP);
+    const maxTier = Math.max(
+      0,
+      Math.round(
+        (PLAYER.BEAT_CHARGE_COMBO_MAX_MULTIPLIER - PLAYER.BEAT_CHARGE_DAMAGE_MULTIPLIER)
+        / PLAYER.BEAT_CHARGE_COMBO_DAMAGE_STEP
+      )
+    );
+    return Phaser.Math.Clamp(raw, 0, maxTier);
+  }
+
+  getBeatChargeDamageMultiplier(tier = this.beatChargeComboTier) {
+    return Math.min(
+      PLAYER.BEAT_CHARGE_COMBO_MAX_MULTIPLIER,
+      PLAYER.BEAT_CHARGE_DAMAGE_MULTIPLIER
+        + Math.max(0, Number(tier) || 0) * PLAYER.BEAT_CHARGE_COMBO_DAMAGE_STEP
+    );
+  }
+
+  spawnHighComboBeatParticles(x, y, tier = 0, { hit = false } = {}) {
+    const safeTier = Math.max(0, Math.trunc(Number(tier) || 0));
+    if (safeTier <= 0) return;
+    const count = Math.min(14, (hit ? 4 : 3) + safeTier * 2);
+    for (let i = 0; i < count; i += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const startR = Phaser.Math.FloatBetween(4, hit ? 12 : 9);
+      const travel = Phaser.Math.FloatBetween(hit ? 16 : 12, hit ? 34 : 28) + safeTier * 1.8;
+      const color = i % 4 === 0 ? 0xeefbff : THEME_BLUE;
+      const particle = this.add.circle(
+        x + Math.cos(angle) * startR,
+        y + Math.sin(angle) * startR,
+        Phaser.Math.FloatBetween(1.2, 2.4),
+        color,
+        Phaser.Math.FloatBetween(0.55, 0.90)
+      ).setDepth(hit ? 32 : 10).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: particle,
+        x: particle.x + Math.cos(angle) * travel,
+        y: particle.y + Math.sin(angle) * travel,
+        alpha: 0,
+        scaleX: 0.35,
+        scaleY: 0.35,
+        duration: Phaser.Math.Between(130, 210),
+        ease: 'Quad.Out',
+        onComplete: () => particle?.active && particle.destroy()
+      });
+    }
+  }
+
   tryBeatAction(tapPoint = null) {
     if (
       this.waitingForGameStart
@@ -3559,12 +3331,13 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.lastRhythmBeatIndex = beat.index;
-    this.beatCharge = true;
-    const previousCombo = this.combo;
+    this.beatCharge = false;
+    this.beatChargeComboTier = 0;
+    this.clearBeatChargeIndicator();
     this.combo += 1;
     this.highestCombo = Math.max(this.highestCombo, this.combo);
     this.lastSuccessfulRhythmGameplayMs = this.gameplayElapsedMs;
-    this.checkComboStageSpinMilestones(previousCombo);
+    this.triggerBeatStageSpin();
     this.pulseComboHud();
     this.showRhythmComboFeedback(this.combo, { strong: Boolean(beat.strong) });
     if (!this.tutorialBeatActionHit) {
@@ -3572,9 +3345,7 @@ export default class GameScene extends Phaser.Scene {
     }
     this.tutorialBeatActionHit = true;
     this.tutorialBeatHit = true;
-    this.refreshBeatChargeIndicator();
 
-    // dev14.21.2：只有真正踩中 Beat 才播放踩地动作；失败输入完全不伪造成功反馈。
     this.player.playBeatActionVisual?.(this.time.now, { strong: Boolean(beat.strong) });
     this.showBeatStepImpact(beat);
     this.showRhythmHitPulse(beat, '「踩拍！」');
@@ -3597,11 +3368,8 @@ export default class GameScene extends Phaser.Scene {
 
     this.player.injustice = 0;
 
-    // 手机触觉只留给低频大事件：升Key起势短震，真正 AOE 爆发再给一次更强震动。
     this.vibrateMobile(20);
 
-    // dev14.21.8.6：大升Key改成“聚火 → 螺旋上升 → 顶点爆闪 → 大范围蓝焰 AOE”。
-    // 伤害/半径/击退数值完全沿用现有配置；只把伤害落点移动到可见爆发瞬间，让判定和演出同步。
     this.player.playKeyUpVisual?.(this.time.now);
     this.showSkillScreenNotice('「升Key！」', '#94d5f3');
 
@@ -3648,8 +3416,8 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
-  spawnSupportHeart() {
-    if (this.supportHearts.countActive(true) >= 2) return;
+  spawnSupportHeart(position = null) {
+    if (this.supportHearts.countActive(true) >= 2) return null;
 
     const view = this.cameras.main.worldView;
     const margin = 72;
@@ -3659,8 +3427,18 @@ export default class GameScene extends Phaser.Scene {
     let best = null;
     let bestEnemyDistance = -Infinity;
 
-    // 多试几个点：要看得见、离主角有一点距离、又尽量别直接落在怪堆中心。
-    for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (
+      position
+      && Number.isFinite(position.x)
+      && Number.isFinite(position.y)
+    ) {
+      best = {
+        x: Phaser.Math.Clamp(position.x, 45, GAME.WORLD_WIDTH - 45),
+        y: Phaser.Math.Clamp(position.y, 45, GAME.WORLD_HEIGHT - 45)
+      };
+    }
+
+    for (let attempt = 0; !best && attempt < 10; attempt += 1) {
       const angle = Phaser.Math.FloatBetween(
         0,
         Math.PI * 2
@@ -3710,8 +3488,6 @@ export default class GameScene extends Phaser.Scene {
       VFX_KEYS.SUPPORT_HEART
     );
 
-    // 0.9.2-dev09：正式 128x128 蓝心替换旧 30x31 占位纹理；
-    // 独立记录 baseVfxScale，保证后续中毒脉冲不会把正式素材放大到原始 128px。
     heart.baseVfxScale = SUPPORT_HEART_VFX.pickupScale;
     heart.setScale(heart.baseVfxScale);
 
@@ -3732,6 +3508,7 @@ export default class GameScene extends Phaser.Scene {
       16,
       1200
     );
+    return heart;
   }
 
 
@@ -3854,7 +3631,6 @@ export default class GameScene extends Phaser.Scene {
     this.player.slowUntil = -Infinity;
     this.player.slowMultiplier = 1;
 
-    // 可净化的控制状态：普通眩晕 / 下凡眩晕 / 圣裁跪地。
     const hadStun = now < this.player.stunnedUntil
       || ['playerXiafanStunArt', 'playerXiafanRecoverArt', 'playerJudgmentKnockdownArt']
         .includes(this.player.texture?.key);
@@ -3883,7 +3659,6 @@ export default class GameScene extends Phaser.Scene {
       this.player.restoreXiafanVisualFlip?.();
     }
 
-    // 鱼网属于可净化控制；用“成功挣脱”的逻辑收尾，但不额外弹旧提示。
     if (this.duckQueenFishNetActive) {
       clearedAny = true;
       this.endDuckQueenFishNet(true, { silentNotice: true });
@@ -3958,7 +3733,7 @@ export default class GameScene extends Phaser.Scene {
         tickMs;
 
       const poisonDamage = Math.min(this.player.hp, tickDamage);
-      if (!this.player.debugInvincible) {
+      {
         this.player.hp = Math.max(
           0,
           this.player.hp - poisonDamage
@@ -3992,11 +3767,14 @@ export default class GameScene extends Phaser.Scene {
       time >= this.nextSupportHeartAt
       && !this.endingSequenceActive
     ) {
+      const supportHeartIntervalMultiplier = Math.max(0.35, Number(
+        this.difficultyProfile?.supportHeartIntervalMultiplier
+      ) || 1);
       this.nextSupportHeartAt =
-        time + Phaser.Math.Between(
+        time + Math.round(Phaser.Math.Between(
           PLAYER.SUPPORT_HEART_MIN_INTERVAL_MS,
           PLAYER.SUPPORT_HEART_MAX_INTERVAL_MS
-        );
+        ) * supportHeartIntervalMultiplier);
       this.spawnSupportHeart();
     }
 
@@ -4019,7 +3797,6 @@ export default class GameScene extends Phaser.Scene {
           time * 0.0045 + (heart.floatSeed ?? 0)
         ) * 4;
 
-      // 最后 3 秒轻微闪烁；主角中毒时也稍微更醒目。
       const endingPulse =
         remaining < 3000
           ? 0.76 + Math.sin(time * 0.018) * 0.18
@@ -4042,7 +3819,6 @@ export default class GameScene extends Phaser.Scene {
   onCollectSupportHeart(player, heart) {
     if (!heart?.active) return;
 
-    // 蓝心投喂后直接融入主角身体，不再飞回屏幕外。
     if (heart.body) {
       heart.body.enable = false;
     }
@@ -4119,8 +3895,6 @@ export default class GameScene extends Phaser.Scene {
   spawnMutualSupportConvergeVfx() {
     if (!this.player?.active || this.finished) return;
 
-    // dev14.21.5：双向奔赴用“左右两侧同时回应 → 汇聚到主角”表达双向感。
-    // 全部使用天蓝 / 蓝白，不借用成长 Aura 的红色语言。
     const player = this.player;
     const startX = player.x;
     const startY = player.y;
@@ -4167,7 +3941,6 @@ export default class GameScene extends Phaser.Scene {
       spawnFollowerHeart(1, -offsetY, index);
     });
 
-    // 两侧光带同时向内收，强调“双方都在朝彼此走”。
     [-1, 1].forEach((side) => {
       for (let i = 0; i < 4; i += 1) {
         const laneY = startY + (i - 1.5) * 14;
@@ -4203,8 +3976,6 @@ export default class GameScene extends Phaser.Scene {
     const py = this.player.y;
     const depth = (Number(this.player.depth) || 10) + 0.64;
 
-    // dev14.21.5.1：左右蓝心汇合后先给一个极短的“命中闪光”。
-    // 这里保持纯蓝心语言，不提前出现月牙；月亮主题只在救赎段接管画面。
     const flash = this.add.image(px, py, VFX_KEYS.SUPPORT_HEART)
       .setDepth(depth + 0.14)
       .setScale(SUPPORT_HEART_VFX.mutualSupportScale * 1.22)
@@ -4263,7 +4034,6 @@ export default class GameScene extends Phaser.Scene {
     this.sound?.play?.('mutualSupportHitSfx', { volume: 0.42 });
     this.cameras.main.flash(55, 220, 247, 255, false);
 
-    // 蓝心撞到主角后，月亮主题正式接管：月牙 → 天降月光 → 月牙升腾 → 月光涟漪。
     this.time.delayedCall(75, () => this.spawnMutualSupportMoonSalvationVfx());
   }
 
@@ -4275,9 +4045,6 @@ export default class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const playerH = Math.max(1, Math.abs(Number(player.displayHeight) || 60));
 
-    // dev14.21.5.8：在干净版基础上继续微调构图。
-    // 月牙和月光整体再上移一点，并锁定在人物正头顶轴线上。
-    // 光束仍保持 PNG 原始比例，只做等比缩放，不再横向拉宽。
     const moonSize = 68;
 
     const getAnchors = () => {
@@ -4339,7 +4106,6 @@ export default class GameScene extends Phaser.Scene {
 
     const firstAnchor = getAnchors();
 
-    // 外围只轻压暗，让视觉焦点始终是“月牙 → 月光 → 主角”。
     const shade = this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x03111c, 0)
       .setOrigin(0)
       .setScrollFactor(0)
@@ -4354,7 +4120,6 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => shade?.active && shade.destroy()
     });
 
-    // 唯一天空月牙：略缩小并进一步离开头发，保持干净留白。
     const moon = this.add.image(firstAnchor.x, firstAnchor.moonY, 'mutualSupportSkyMoonArt')
       .setDepth(playerDepth + 0.20)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -4388,7 +4153,6 @@ export default class GameScene extends Phaser.Scene {
         );
     };
 
-    // 演出期间主角仍可移动；月牙、两层月光和人物受光都跟随真实视觉锚点。
     const followEvent = this.time.addEvent({
       delay: 16,
       loop: true,
@@ -4419,7 +4183,6 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Sine.Out'
     });
 
-    // 月牙先出现，再铺一层低透明柔光；随后落下更窄、更亮的核心。
     this.time.delayedCall(78, () => {
       if (!player?.active || this.finished) return;
       const anchor = getAnchors();
@@ -4439,7 +4202,6 @@ export default class GameScene extends Phaser.Scene {
       this.sound?.play?.('mutualSupportMoonlightSfx', { volume: 0.40 });
       const anchor = getAnchors();
 
-      // 月光主阶段才切换专用人物帧；蓝心汇合和命中阶段仍保持原战斗人物。
       player.enterMutualSupportHealPose?.();
 
       beamCore = this.add.image(anchor.x, anchor.beamTopY, 'mutualSupportBeamHealArt')
@@ -4456,8 +4218,6 @@ export default class GameScene extends Phaser.Scene {
       });
       revealBeamWithCrop(beamCore, 185, 'Cubic.In');
 
-      // 人物受光改成“人物自己在发光”：复制当前角色帧做短暂淡蓝 ADD 剪影。
-      // 不再画任何椭圆 / 蛋壳形光罩。
       this.time.delayedCall(170, () => {
         if (!player?.active || this.finished) return;
         const key = player.texture?.key;
@@ -4485,7 +4245,6 @@ export default class GameScene extends Phaser.Scene {
         this.spawnMutualSupportMoonImpactVfx(player.x, player.y, Number(player.depth) || playerDepth);
       });
 
-      // 两层按顺序退场：先亮核心，再空气柔光。
       this.time.delayedCall(535, () => {
         if (!beamCore?.active) return;
         this.tweens.add({
@@ -4529,9 +4288,7 @@ export default class GameScene extends Phaser.Scene {
   spawnMutualSupportMoonImpactVfx(px, py, playerDepth = 10) {
     if (!this.player?.active || this.finished) return;
 
-    // 月亮主体只存在于天空；人物背后不再生成第二个大型月牙。
 
-    // 蓝色月牙粒子从人物周身向上升腾；主体附近留出干净区，不盖住人物脸和身体中心。
     for (let i = 0; i < 14; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
       const offsetX = side * Phaser.Math.Between(24, 48);
@@ -4559,7 +4316,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 月光弧形涟漪：只画不完整弧段，避免重新出现“完整圆圈 Aura”的观感。
     for (let i = 0; i < 2; i += 1) {
       const ripple = this.add.graphics()
         .setPosition(px, py + 27)
@@ -4586,7 +4342,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 少量细小蓝白光点作为余韵；数量克制，避免把月牙和主角淹没。
     for (let i = 0; i < 12; i += 1) {
       const dot = this.add.circle(
         px + Phaser.Math.Between(-52, 52),
@@ -4622,7 +4377,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.player.support = 0;
 
-    // 双向奔赴使用柔和的三段脉冲，与升Key的爆发触觉区分。
     this.vibrateMobile([18, 55, 22, 70, 32]);
 
     const healTarget = Math.max(1, Math.round(this.player.maxHp * 0.25));
@@ -4635,11 +4389,9 @@ export default class GameScene extends Phaser.Scene {
 
     const cleanseResult = this.clearPlayerNegativeStatusesByMutualSupport();
 
-    // dev14.21.5：数值结算仍然即时发生，动作 / VFX 只负责视觉反馈，不改变技能时序。
     this.player.playMutualSupportVisual?.(this.time.now);
     const mutualSupportNotice = this.showSkillScreenNotice('「双向奔赴🩵」', '#9ce8ff');
 
-    // 蓝心汇合约 330ms、月牙约 405ms 出现；回血 / 净化反馈等到月光主阶段再显示。
     this.time.delayedCall(690, () => {
       if (!this.player?.active || this.finished) return;
 
@@ -4659,7 +4411,6 @@ export default class GameScene extends Phaser.Scene {
         { strokeColor: '#59d97a', strokeThickness: 4 }
       );
 
-      // 净化反馈挂在技能名下方，但只显示纯文字，不增加第二个文字框 / 底板。
       if (mutualSupportNotice?.active) {
         this.attachSkillNoticeSubtext(mutualSupportNotice, '负面状态已清除', '#9ce8ff', 810);
       }
@@ -4748,9 +4499,6 @@ export default class GameScene extends Phaser.Scene {
     this.input.on('pointerup', release);
     this.input.on('pointerupoutside', release);
 
-    // Internal Test v1.0.5：参考 Dead Cells 手机版，把右手动作区收成四键菱形簇。
-    // 上：闪身；右：踩拍；下：双向奔赴；左：升Key。
-    // 四个按钮都明确可见且命中范围严格跟随几何按钮；屏幕其余空白仍可直接踩拍。
     this.createMobileActionButton(
       'B', '闪身', 844, 326,
       () => this.player.tryDash(this.time.now),
@@ -4788,8 +4536,6 @@ export default class GameScene extends Phaser.Scene {
       const btn = this.mobileButtonState?.[key];
       if (!btn?.hitPolygon) continue;
 
-      // 命中范围严格跟随屏幕上实际画出来的切角几何按钮。
-      // 不额外扩大成隐形热区，避免技能键之间的误按。
       if (Phaser.Geom.Polygon.Contains(btn.hitPolygon, x, y)) {
         return true;
       }
@@ -4810,7 +4556,6 @@ export default class GameScene extends Phaser.Scene {
         || this.player.hp <= 0
       ) return;
 
-      // 摇杆和右侧四个可见动作键属于专用操作区，不把同一次触摸重复结算成空白区踩拍。
       if (this.isPointInsideMobileJoystickInputArea(pointer.x, pointer.y)) return;
       if (this.isPointInsideMobileActionControl(pointer.x, pointer.y)) return;
 
@@ -4861,8 +4606,6 @@ export default class GameScene extends Phaser.Scene {
     const x = Phaser.Math.Clamp(tapPoint.x, view.x + 10, view.right - 10);
     const y = Phaser.Math.Clamp(tapPoint.y, view.y + 10, view.bottom - 10);
 
-    // MISS 与成功蓝圈使用同一套“落点反馈”语言，但红圈不扩散。
-    // 它只在原地短暂亮起并淡出，明确告诉玩家：输入收到了，只是没踩中。
     const ring = this.add.circle(x, y, 30, 0xff5a5f, 0)
       .setStrokeStyle(4, 0xff6469, 0.94)
       .setScrollFactor(0)
@@ -4893,8 +4636,6 @@ export default class GameScene extends Phaser.Scene {
     const cut = Phaser.Math.Clamp(options.cut ?? 14, 8, Math.min(width, height) * 0.28);
     const primary = options.primary === true;
 
-    // Dead Cells 风格思路：动作键视觉上聚成一个右拇指簇，但每个键仍有明确、独立的可见边界。
-    // 使用切角八边形而不是大圆，能在更紧凑的布局里获得更大的有效触控面积。
     const localPoints = [
       { x: cut, y: 0 },
       { x: width - cut, y: 0 },
@@ -4942,7 +4683,6 @@ export default class GameScene extends Phaser.Scene {
         Phaser.Geom.Polygon.Contains
       );
 
-    // 左上角保留很小的 Y / B / A 键位提示；技能名本身才是视觉主体。
     const keyText = this.add.text(
       x - width * 0.5 + 18,
       y - height * 0.5 + 15,
@@ -4991,7 +4731,6 @@ export default class GameScene extends Phaser.Scene {
     this.mobileButtonState[key] = {
       shape,
       shadow,
-      // 保留 circle 别名，避免旧的低风险 UI 更新路径依赖字段名。
       circle: shape,
       keyText,
       labelText,
@@ -5026,7 +4765,6 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Quad.Out'
     });
 
-    // 额外短亮一下边框/面板，让手机玩家能明确看到“这个技能键收到输入了”。
     const originalFillAlpha = btn.primary ? 0.88 : 0.76;
     btn.shape.setFillStyle(btn.primary ? 0x2f6f98 : 0x24506f, 0.96);
     this.time.delayedCall(105, () => {
@@ -5049,7 +4787,6 @@ export default class GameScene extends Phaser.Scene {
       : GAME.HEIGHT * 0.5;
     const radius = strong ? 34 : 30;
 
-    // 真正踩中时，成功特效直接从玩家手指落点爆开，而不是固定从屏幕中央按钮生成。
     const flash = this.add.circle(
       x,
       y,
@@ -5178,16 +4915,8 @@ export default class GameScene extends Phaser.Scene {
   updatePlayerAoe(time) {
     if (this.player.isControlLocked?.(time)) return;
 
-    // AOE 属于“舞动中的输出”：站着不动时不自动释放。
-    // Dash 也算移动，因此闪身过程中仍可以触发。
     const isMoving = this.player.isDashing || this.player.body.velocity.lengthSq() > 25;
-
     if (!isMoving) return;
-
-    if (time >= this.player.nextDancePulseAt) {
-      this.castDancePulse();
-      this.player.nextDancePulseAt = time + this.player.dancePulseInterval;
-    }
 
     if (this.player.soundWaveUnlocked && time >= this.player.nextSoundWaveAt) {
       this.castSoundWave();
@@ -5195,36 +4924,143 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  castDancePulse() {
-    const x = this.player.x;
-    const y = this.player.y;
-    const radius = this.player.dancePulseRadius;
-
-    this.damageEnemiesInRadius(x, y, radius, this.player.dancePulseDamage, 85);
-    this.showAoeRing(x, y, radius, 0x79c7ff, 0.38, 230);
-  }
-
   castSoundWave() {
-    const x = this.player.x;
-    const y = this.player.y;
-    const radius = this.player.soundWaveRadius;
+    const center = this.getBeatVfxPosition(BEAT_VFX.strong);
+    const x = center.x;
+    const y = center.y;
+    const level = Phaser.Math.Clamp(Math.trunc(this.player.soundWaveLevel || 1), 1, 4);
+    const radiusX = this.player.soundWaveRadius;
+    const perspectiveRatio = BEAT_VFX.strong.displayHeight / Math.max(1, BEAT_VFX.strong.displayWidth);
+    const radiusY = radiusX * perspectiveRatio;
+    const stunMs = PLAYER.SOUND_WAVE_STUN_MS_BY_LEVEL?.[level - 1] ?? 800;
 
-    this.damageEnemiesInRadius(
-      x,
-      y,
-      radius,
-      this.player.soundWaveDamage,
-      this.player.soundWaveKnockback
-    );
-
-    this.showAoeRing(x, y, radius, 0xd7efff, 0.58, 360);
+    this.paralyzeEnemiesInSoundWave(x, y, radiusX, radiusY, stunMs);
+    this.showSoundWaveVfx(x, y, radiusX, radiusY, level);
     this.showPassiveSkillImportantWorldText(
       this.player,
       '「♫ 声浪」',
-      '#d7efff',
+      THEME_BLUE_HEX,
       17,
       { priority: 68, yOffset: 58, coalesceLowPriority: true }
     );
+  }
+
+  paralyzeEnemiesInSoundWave(x, y, radiusX, radiusY, stunMs) {
+    const now = this.time.now;
+    this.enemies.children.iterate((enemy) => {
+      if (!enemy?.active || enemy.isDead) return;
+      const isBoss = enemy.isBoss === true || ['duckQueen', 'potatoCommander'].includes(enemy.enemyType);
+      if (isBoss) return;
+
+      if (enemy.enemyType === 'ball') return;
+
+      const padX = Math.max(8, (Number(enemy.displayWidth) || 0) * 0.20);
+      const padY = Math.max(6, (Number(enemy.displayHeight) || 0) * 0.16);
+      const nx = (enemy.x - x) / Math.max(1, radiusX + padX);
+      const ny = (enemy.y - y) / Math.max(1, radiusY + padY);
+      if (nx * nx + ny * ny > 1) return;
+
+      const duration = Math.max(
+        120,
+        Math.round(stunMs * (enemy.isElite ? PLAYER.SOUND_WAVE_ELITE_STUN_MULTIPLIER : 1))
+      );
+      enemy.applyStun?.(duration, now);
+      enemy.setVelocity?.(0, 0);
+    });
+  }
+
+  showSoundWaveVfx(x, y, radiusX, radiusY, level = 1) {
+    const safeLevel = Phaser.Math.Clamp(Math.trunc(level || 1), 1, 4);
+    const waveCount = safeLevel >= 4 ? 5 : safeLevel >= 2 ? 4 : 3;
+    const initialCenter = this.getBeatVfxPosition(BEAT_VFX.strong);
+    const group = this.add.container(initialCenter.x, initialCenter.y).setDepth(8.5);
+
+    const perspectiveRatio = radiusY / Math.max(1, radiusX);
+    for (let i = 0; i < waveCount; i += 1) {
+      const baseWidth = 44 + i * 8;
+      const baseHeight = baseWidth * perspectiveRatio;
+      const wave = this.add.ellipse(
+        0,
+        0,
+        baseWidth,
+        baseHeight,
+        THEME_BLUE,
+        0.018
+      )
+        .setStrokeStyle(4.6 - i * 0.5, i === 0 ? 0xeafcff : THEME_BLUE, 0.88 - i * 0.075)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      group.add(wave);
+
+      const finalRadiusX = radiusX * (0.76 + i * 0.08);
+      const finalWidth = finalRadiusX * 2;
+      const finalScale = finalWidth / Math.max(1, baseWidth);
+      wave.setScale(0.72);
+      this.tweens.add({
+        targets: wave,
+        scaleX: finalScale,
+        scaleY: finalScale,
+        alpha: 0,
+        duration: 430 + safeLevel * 48,
+        delay: i * 76,
+        ease: 'Cubic.Out'
+      });
+    }
+
+    const coreW = 38;
+    const coreH = coreW * perspectiveRatio;
+    const core = this.add.ellipse(0, 0, coreW, coreH, THEME_BLUE, 0.20)
+      .setStrokeStyle(3, 0xf1fdff, 0.90)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    group.add(core);
+    this.tweens.add({
+      targets: core,
+      scaleX: 1.75 + safeLevel * 0.08,
+      scaleY: 1.75 + safeLevel * 0.08,
+      alpha: 0,
+      duration: 260,
+      ease: 'Quad.Out'
+    });
+
+    const goldCounts = [0, 5, 11, 20];
+    const goldCount = goldCounts[safeLevel - 1] || 0;
+    for (let i = 0; i < goldCount; i += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const startR = Phaser.Math.FloatBetween(12, 30);
+      const endR = Phaser.Math.FloatBetween(radiusX * 0.52, radiusX * 0.96);
+      const particle = this.add.circle(
+        Math.cos(angle) * startR,
+        Math.sin(angle) * startR * perspectiveRatio,
+        Phaser.Math.FloatBetween(1.3, safeLevel >= 4 ? 2.8 : 2.2),
+        GOLD_PARTICLE,
+        Phaser.Math.FloatBetween(0.58, 0.94)
+      ).setBlendMode(Phaser.BlendModes.ADD);
+      group.add(particle);
+      this.tweens.add({
+        targets: particle,
+        x: Math.cos(angle) * endR,
+        y: Math.sin(angle) * endR * perspectiveRatio,
+        alpha: 0,
+        scaleX: 0.35,
+        scaleY: 0.35,
+        duration: Phaser.Math.Between(330, 560),
+        ease: 'Quad.Out'
+      });
+    }
+
+    const follow = { t: 0 };
+    const followDuration = 980 + safeLevel * 40;
+    this.tweens.add({
+      targets: follow,
+      t: 1,
+      duration: followDuration,
+      onUpdate: () => {
+        if (group?.active && this.player?.active) {
+          const center = this.getBeatVfxPosition(BEAT_VFX.strong);
+          group.setPosition(center.x, center.y);
+        }
+      },
+      onComplete: () => group?.active && group.destroy(true)
+    });
   }
 
   damageEnemiesInRadius(x, y, radius, damage, knockback = 0) {
@@ -5334,12 +5170,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   castElectricRadiance() {
-    // 视觉等级在释放瞬间锁定；技能中心则在整次短动画期间持续绑定主角中心。
     const electricVfxLevel = Math.max(1, Math.min(3, this.player.electricLevel || 1));
     const electricCast = this.createElectricCastContext(electricVfxLevel);
     const { x, y } = this.getElectricCastCenter(electricCast);
 
-    // 第一段：瞬间放电。高伤害 + 短暂麻痹。
     const victims = [];
     this.enemies.children.iterate((enemy) => {
       if (!enemy?.active || enemy.isDead) return;
@@ -5368,7 +5202,6 @@ export default class GameScene extends Phaser.Scene {
       { priority: 80, yOffset: 64, replaceLowerPriority: true }
     );
 
-    // 第二段：150ms 后仍以“那一刻的主角中心”为技能中心，而不是沿用旧世界坐标。
     this.time.delayedCall(this.player.electricShockDelay, () => {
       if (this.finished || !this.player?.active) return;
       this.castElectricShockwave(electricCast);
@@ -5380,7 +5213,6 @@ export default class GameScene extends Phaser.Scene {
     const rotation = Phaser.Math.FloatBetween(0, Math.PI * 2);
     const sector = (Math.PI * 2) / safeCount;
 
-    // 均匀扇区 + 轻微随机偏移：每次施法形态不同，但不会全部堆到同一方向。
     return Array.from({ length: safeCount }, (_, index) => (
       rotation
       + sector * index
@@ -5398,7 +5230,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   chooseElectricPattern(level) {
-    // Lv1 保持清楚的基础放射；Lv2/Lv3 才逐步解锁明显不同的拓扑。
     if (level <= 1) return 'radial';
 
     const roll = Math.random();
@@ -5626,6 +5457,37 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  spawnElectricMaxThemeParticles(cast, radius, { aftershock = false } = {}) {
+    if (!cast || cast.level < 4) return;
+    const center = this.getElectricCastCenter(cast);
+    const count = aftershock ? 34 : 28;
+    for (let i = 0; i < count; i += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const startR = Phaser.Math.FloatBetween(10, radius * (aftershock ? 0.28 : 0.20));
+      const endR = Phaser.Math.FloatBetween(radius * 0.42, radius * (aftershock ? 0.98 : 0.78));
+      const size = Phaser.Math.FloatBetween(1.4, i % 5 === 0 ? 3.2 : 2.5);
+      const particle = this.add.circle(
+        center.x + Math.cos(angle) * startR,
+        center.y + Math.sin(angle) * startR,
+        size,
+        i % 6 === 0 ? 0xe8fbff : THEME_BLUE,
+        Phaser.Math.FloatBetween(0.58, 0.96)
+      ).setDepth(20.5).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: particle,
+        x: center.x + Math.cos(angle) * endR,
+        y: center.y + Math.sin(angle) * endR,
+        alpha: 0,
+        scaleX: 0.25,
+        scaleY: 0.25,
+        duration: Phaser.Math.Between(aftershock ? 210 : 170, aftershock ? 420 : 330),
+        delay: Phaser.Math.Between(0, aftershock ? 90 : 55),
+        ease: 'Quad.Out',
+        onComplete: () => particle?.active && particle.destroy()
+      });
+    }
+  }
+
   spawnElectricRadialPattern(cast, radius, cfg) {
     const level = cast.level;
     const count = level === 1 ? 4 : Phaser.Math.Between(level === 2 ? 4 : 5, level === 2 ? 5 : 5);
@@ -5680,7 +5542,6 @@ export default class GameScene extends Phaser.Scene {
       const delay = i * (level >= 3 ? 27 : 32);
       const orbitArcLength = Phaser.Math.Between(level >= 3 ? 64 : 54, level >= 3 ? 92 : 80);
 
-      // 旋扫主体是贴着角色外圈连续出现的切向短弧，不是从中心同时射出一圈长闪电。
       this.scheduleElectricCastVfx(cast, delay, () => {
         this.spawnElectricBoltVfx(cast, tangentAngle, orbitArcLength, cfg, {
           startOffsetX,
@@ -5695,7 +5556,6 @@ export default class GameScene extends Phaser.Scene {
         });
       });
 
-      // 只有少数扫到的节点会把电流真正“甩”向外圈，形成旋转后外抛的轮廓。
       const shouldLashOut = i === 1 || i === count - 2 || (level >= 3 && i === Math.floor(count / 2));
       if (shouldLashOut) {
         const lashAngle = orbitAngle + Phaser.Math.FloatBetween(-0.18, 0.18);
@@ -5787,7 +5647,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnElectricAftershockRing(cast, radius, cfg) {
-    // 第二段不再复制一套长主闪电，而是做“二次放电”：短弧环 + 稀疏外扩接地点。
     const level = cast.level;
     const count = level === 1 ? 4 : level === 2 ? 5 : 6;
     const rotation = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -5831,7 +5690,6 @@ export default class GameScene extends Phaser.Scene {
     const groundCount = Math.min(level >= 3 ? 2 : 1, groundTargets.length);
     groundTargets.slice(0, groundCount).forEach((point, index) => {
       this.scheduleElectricCastVfx(cast, 35 + index * 28, () => {
-        // 把接触点再向外推一点，让第二段读成“外扩”，而不是围着人物打转。
         const len = Math.hypot(point.offsetX, point.offsetY) || 1;
         const factor = (radius * Phaser.Math.FloatBetween(0.56, 0.72)) / len;
         this.spawnElectricGroundContactVfx(cast, {
@@ -5858,7 +5716,6 @@ export default class GameScene extends Phaser.Scene {
     );
     cast.primaryEndpoints = endpoints;
 
-    // 第一段只保留非常稀疏的末端接触；不同拓扑的主体轮廓才是视觉重点。
     const shuffled = Phaser.Utils.Array.Shuffle([...endpoints]);
     const groundCount = Math.min(level >= 3 ? 2 : 1, shuffled.length);
     shuffled.slice(0, groundCount).forEach((point, index) => {
@@ -5869,7 +5726,6 @@ export default class GameScene extends Phaser.Scene {
 
     const center = this.getElectricCastCenter(cast);
 
-    // Lv3 的 lightning_03 是中心高能爆发，不当作长电弧拉伸。
     if (cfg.centerKey) {
       const centerBurst = this.vfx?.spawnImage(cfg.centerKey, center.x, center.y, {
         depth: 9,
@@ -5917,11 +5773,11 @@ export default class GameScene extends Phaser.Scene {
     this.spawnElectricSparksVfx(cast, cfg, this.player.electricBurstRadius, {
       countScale: pattern === 'chain' ? 0.72 : pattern === 'sweep' ? 0.82 : 0.90
     });
+    this.spawnElectricMaxThemeParticles(cast, this.player.electricBurstRadius, { aftershock: false });
     this.cameras.main.shake(75, 0.0035);
   }
 
   castElectricShockwave(cast) {
-    // 第二段发生时重新读取主角中心，确保人物移动后冲击波仍以人物为中心。
     const { x, y } = this.getElectricCastCenter(cast);
     const level = cast.level;
     const radius = this.player.electricShockRadius;
@@ -5948,7 +5804,6 @@ export default class GameScene extends Phaser.Scene {
       direction.normalize();
 
       if (enemy.enemyType === 'ball') {
-        // 足球不被“麻痹”，但会被冲击波改变弹射方向。
         const ballSpeed = Math.max(enemy.body.velocity.length(), enemy.moveSpeed);
         const tangent = new Phaser.Math.Vector2(-direction.y, direction.x)
           .scale(Phaser.Math.FloatBetween(-0.55, 0.55));
@@ -5972,7 +5827,6 @@ export default class GameScene extends Phaser.Scene {
     const level = cast.level;
     const cfg = getLightningVfxLevel(level);
 
-    // 150ms 后不是“再来一套长闪电”，而是已有能量结构向外做一次短促二次放电。
     this.spawnElectricAftershockRing(cast, radius, cfg);
 
     const center = this.getElectricCastCenter(cast);
@@ -6024,8 +5878,8 @@ export default class GameScene extends Phaser.Scene {
       aftershock: true,
       countScale: level >= 3 ? 0.82 : 0.68
     });
+    this.spawnElectricMaxThemeParticles(cast, radius, { aftershock: true });
 
-    // 保留旧版第二段的轻微全屏闪白。
     const flash = this.add.rectangle(
       this.cameras.main.midPoint.x,
       this.cameras.main.midPoint.y,
@@ -6117,7 +5971,6 @@ export default class GameScene extends Phaser.Scene {
       (this.gameStartGate ?? []).forEach((item) => item?.destroy());
       this.gameStartGate = null;
 
-      // 第一个可游玩帧直接落在强拍相位 0。
       this.updateBeatIndicator(0);
     };
 
@@ -6134,7 +5987,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   startGameplayMusic() {
-    // 保留旧调用入口；真正的首次启动必须与关卡时钟一起发生。
     if (this.waitingForGameStart) {
       this.startGameplayExperience();
     } else {
@@ -6196,16 +6048,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.ensureBeatIndicator();
 
-    // 仍然直接由全局音乐相位驱动，不新增 tween / delayedCall 节拍时钟。
-    // 因此掉帧最多只跳过一个视觉帧，不会让脚底 Hint 与音乐逐拍漂移。
     const quarter = 500;
     const phase = ((clock % quarter) + quarter) % quarter;
     const strongDistance = Math.min(phase, quarter - phase);
     const auxDistance = Math.abs(phase - quarter / 2);
 
-    // 判定窗口保持 0.9.1 以来的原值；这里只把 Graphics 视觉换成正式 PNG。
-    // gameplay 判定窗口仍然由 PLAYER 常量负责；这里使用更宽的纯视觉窗口，
-    // 让 Hint 在拍点前后可见，而不是只在极短的判定帧里闪现。
     const strongVisualWindow = BEAT_VFX.strong.visualWindowMs;
     const auxVisualWindow = BEAT_VFX.weak.visualWindowMs;
     const strongAmount = Phaser.Math.Clamp(
@@ -6247,7 +6094,6 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // 兼容旧调用：现在不再创建一次性 tween，而是刷新相位驱动指示器。
   showBeatPulse() {
     this.updateBeatIndicator();
   }
@@ -6259,8 +6105,6 @@ export default class GameScene extends Phaser.Scene {
     const beat = this.getCurrentBeatMatch();
     const beatSynced = Boolean(beat && beat.index !== this.lastRhythmBeatIndex);
 
-    // dev14.21.3：普通闪身也有动作；真正踩中 Beat 时再升级残影 / 拖尾强度。
-    // 视觉动作不参与 Dash 位移、无敌窗口、Combo 或冷却结算。
     this.player.playDashVisual?.(time, {
       direction: this.player.lastMoveVector,
       beatSynced,
@@ -6271,11 +6115,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.lastRhythmBeatIndex = beat.index;
     this.lastFlashStepDashStartedAt = time;
-    const previousCombo = this.combo;
     this.combo += 1;
     this.highestCombo = Math.max(this.highestCombo, this.combo);
     this.lastSuccessfulRhythmGameplayMs = this.gameplayElapsedMs;
-    this.checkComboStageSpinMilestones(previousCombo);
     this.pulseComboHud();
     this.showRhythmComboFeedback(this.combo, { strong: Boolean(beat.strong) });
     if (!this.tutorialFlashStepHit) {
@@ -6354,7 +6196,6 @@ export default class GameScene extends Phaser.Scene {
       this.startGameplayMusic();
     }
 
-    // 高手已经做过的动作，教程自动跳过。
     if (
       elapsedSeconds < 10
       && !this.tutorialMoved
@@ -6382,7 +6223,7 @@ export default class GameScene extends Phaser.Scene {
     if (beatActionAge < 3.8) {
       this.setTutorialHint(
         'beat-charge',
-        '「踩中节拍 → 强化下一发月牙」'
+        '「踩中节拍 → 触发舞台回旋」'
       );
       return;
     }
@@ -6401,7 +6242,7 @@ export default class GameScene extends Phaser.Scene {
     if (flashStepAge < 4.0) {
       this.setTutorialHint(
         'combo',
-        '「每次踩中节拍 +1｜Combo 5 / 10 / 20 触发更强舞台回旋」'
+        '「保持更高 Combo，舞台回旋会越来越强」'
       );
       return;
     }
@@ -6419,7 +6260,6 @@ export default class GameScene extends Phaser.Scene {
     const view = this.cameras.main.worldView;
     if (!view.contains(duck.x, duck.y)) return false;
 
-    // 靠近主角的鸭子更容易被玩家看到，优先给反馈。
     const distance = Phaser.Math.Distance.Between(
       duck.x,
       duck.y,
@@ -6484,7 +6324,6 @@ export default class GameScene extends Phaser.Scene {
 
   destroyPlayerOrbitCrescentVisuals() {
     if (this.playerOrbitCrescent?.active) this.playerOrbitCrescent.destroy();
-    // v2.1：红色描边层已取消；保留 legacy 字段只为兼容旧调试状态。
     if (this.playerOrbitCrescentOutline?.active) this.playerOrbitCrescentOutline.destroy();
     this.playerOrbitCrescent = null;
     this.playerOrbitCrescentOutline = null;
@@ -6496,7 +6335,6 @@ export default class GameScene extends Phaser.Scene {
     if (!this.playerOrbitCrescent?.active) {
       this.destroyPlayerOrbitCrescentVisuals();
 
-      // 月之守卫只保留原始蓝色 PNG。红色识别改由短寿命粒子覆盖 / 拖尾完成。
       const sprite = this.add.image(
         this.player.x,
         this.player.y + PLAYER.MOON_GUARD_ANCHOR_Y_OFFSET,
@@ -6523,7 +6361,6 @@ export default class GameScene extends Phaser.Scene {
     const nx = -ty;
     const ny = tx;
 
-    // 每次 1~2 粒：大部分贴在月牙表面，少量沿反运动方向形成极短尾迹。
     const count = Math.random() < 0.34 ? 2 : 1;
     for (let i = 0; i < count; i += 1) {
       const lateral = Phaser.Math.FloatBetween(-5.0, 5.0);
@@ -6574,7 +6411,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.playerOrbitCrescentPendingUnlock = false;
     this.playerOrbitCrescentUnlocked = true;
-    // 从身体右前侧开始，解锁瞬间即可看见；之后完整绕椭圆运行。
     this.playerOrbitCrescentAngle = Math.PI * 0.12;
     this.playerOrbitCrescentHitCooldowns = new WeakMap();
 
@@ -6606,9 +6442,6 @@ export default class GameScene extends Phaser.Scene {
     const sprite = this.ensurePlayerOrbitCrescent();
     if (!sprite?.active) return;
 
-    // v2.2：轨道采用相位变速，而不是机械匀速。
-    // 当月牙即将钻进人物背后（消失）或刚从另一侧窜出（出现）时，角速度形成短促峰值。
-    // 正面区域回落到基础速度，保留可读性；隐藏区本身也略提速，减少“在背后停太久”的感觉。
     const normalizedAngle = Phaser.Math.Angle.Normalize(this.playerOrbitCrescentAngle);
     const occlusionRatio = Phaser.Math.Clamp(
       PLAYER.MOON_GUARD_BODY_OCCLUSION_HALF_WIDTH / PLAYER.MOON_GUARD_RADIUS_X,
@@ -6640,20 +6473,16 @@ export default class GameScene extends Phaser.Scene {
 
     const angle = this.playerOrbitCrescentAngle;
     const sidePhase = Math.cos(angle);
-    const depthPhase = Math.sin(angle); // >0 在人物前，<0 在人物后
+    const depthPhase = Math.sin(angle);
     const centerX = this.player.x;
     const centerY = this.player.y + PLAYER.MOON_GUARD_ANCHOR_Y_OFFSET;
 
-    // 伪 3D 环绕：前半圈向下展开，后半圈只轻微向上。
-    // 这样轨道围绕的是腰/身体中段，而不是从头顶绕过。
     const verticalRadius = depthPhase >= 0
       ? PLAYER.MOON_GUARD_FRONT_RADIUS_Y
       : PLAYER.MOON_GUARD_BACK_RADIUS_Y;
     const orbitX = centerX + sidePhase * PLAYER.MOON_GUARD_RADIUS_X;
     const orbitY = centerY + depthPhase * verticalRadius;
 
-    // 椭圆的切线方向，而不是简单 angle + PI/2。
-    // 这会让 PNG 真正“沿轨道走”，左右两侧自然竖起，前后位置自然横过。
     const tangentX = -PLAYER.MOON_GUARD_RADIUS_X * Math.sin(angle);
     const tangentY = verticalRadius * Math.cos(angle);
     const orbitRotation = Math.atan2(tangentY, tangentX);
@@ -6661,7 +6490,6 @@ export default class GameScene extends Phaser.Scene {
     const isBehind = depthPhase < 0;
     const playerDepth = this.player.depth ?? 10;
 
-    // 透视：背后稍小，前面稍大。
     const perspectiveT = Phaser.Math.Clamp((depthPhase + 1) * 0.5, 0, 1);
     const perspectiveScale = Phaser.Math.Linear(
       PLAYER.MOON_GUARD_BACK_SCALE,
@@ -6670,9 +6498,6 @@ export default class GameScene extends Phaser.Scene {
     );
     const coreSize = PLAYER.MOON_GUARD_PNG_SIZE * perspectiveScale;
 
-    // 关键：后半圈不再“整段消失”。
-    // 左右后侧仍可在人物轮廓外短暂看到；只有月牙真正进入人物身体正后方时才隐藏。
-    // 同时后半圈 depth 放到人物下面，PNG 与人物重叠的部分自然被人物遮挡。
     const hiddenDirectlyBehind = isBehind
       && Math.abs(orbitX - centerX) < PLAYER.MOON_GUARD_BODY_OCCLUSION_HALF_WIDTH;
     const visualAlphaFactor = isBehind ? PLAYER.MOON_GUARD_BACK_ALPHA_FACTOR : 1;
@@ -6702,7 +6527,6 @@ export default class GameScene extends Phaser.Scene {
       );
     }
 
-    // 伤害仍只发生在前半圈。后侧露出的那一小段只负责提供“绕到背后”的视觉连续性。
     const canHit = depthPhase >= 0;
     if (!canHit) return;
 
@@ -6748,8 +6572,8 @@ export default class GameScene extends Phaser.Scene {
         return;
       }
 
-      const isBoss = ['duckQueen', 'potatoCommander'].includes(enemy.enemyType);
-      if (isBoss || enemy.enemyType === 'ball') return;
+      const isBoss = enemy.isBoss === true || ['duckQueen', 'potatoCommander'].includes(enemy.enemyType);
+      if (isBoss) return;
 
       const eliteScale = enemy.isElite ? 0.42 : 1;
       const knockback = PLAYER.MOON_GUARD_KNOCKBACK
@@ -6846,11 +6670,13 @@ export default class GameScene extends Phaser.Scene {
     );
 
     const charged = this.beatCharge === true;
+    const chargeTier = charged ? Math.max(0, this.beatChargeComboTier || 0) : 0;
+    const chargeDamageMultiplier = charged ? this.getBeatChargeDamageMultiplier(chargeTier) : 1;
     const volley = this.getAttackCrescentVolley(this.level);
+    const volleyId = ++this.crescentVolleySerial;
 
-    // 一次普通攻击只播放一次人物出手动作；Lv.20 / 40 的多月牙在同一拍扇形展开。
     this.player.playBasicAttackVisual?.(baseAngle, time, { charged });
-    this.createBasicAttackReleaseAccent(baseAngle, charged);
+    this.createBasicAttackReleaseAccent(baseAngle, charged, chargeTier);
 
     const crescentVfx = getCrescentVfxLevel(this.player.crescentLevel);
     volley.angleOffsets.forEach((angleOffset, index) => {
@@ -6864,39 +6690,42 @@ export default class GameScene extends Phaser.Scene {
       const bullet = this.bullets.create(spawnX, spawnY, crescentVfx.attackKey);
       bullet.crescentLevel = crescentVfx.level;
       bullet.charged = charged;
+      bullet.beatChargeComboTier = chargeTier;
       bullet.volleyCount = volley.count;
+      bullet.volleyId = volleyId;
+      bullet.lifestealLevel = Math.max(0, this.player.lifestealLevel || 0);
       bullet.damage = Math.max(
         1,
         Math.round(
           this.player.attackDamage
           * volley.damageMultiplier
-          * (charged ? PLAYER.BEAT_CHARGE_DAMAGE_MULTIPLIER : 1)
+          * chargeDamageMultiplier
         )
       );
       bullet.createdAt = time;
       bullet.nextTrailAt = time;
+      bullet.nextLifestealParticleAt = time;
       bullet.setDepth(8);
       bullet.setRotation(angle);
 
-      const displaySize = crescentVfx.attackDisplaySize
-        * (charged ? PLAYER.BEAT_CHARGE_SIZE_MULTIPLIER : 1);
+      const displaySize = crescentVfx.attackDisplaySize;
       bullet.setDisplaySize(displaySize, displaySize);
       if (charged) bullet.setTint(0xe8fbff);
 
-      // 正式素材统一为 256×256；保持既有 gameplay hitbox。
       bullet.body.setCircle(48, 80, 80);
       this.physics.velocityFromRotation(angle, PLAYER.BULLET_SPEED, bullet.body.velocity);
     });
 
     if (charged) {
       this.beatCharge = false;
+      this.beatChargeComboTier = 0;
       this.clearBeatChargeIndicator();
     }
 
     this.nextShotAt = time + this.player.fireInterval;
   }
 
-  createBasicAttackReleaseAccent(angle, charged = false) {
+  createBasicAttackReleaseAccent(angle, charged = false, chargeTier = 0) {
     if (!this.player?.active) return;
     const distance = charged ? 24 : 19;
     const x = this.player.x + Math.cos(angle) * distance;
@@ -6911,6 +6740,7 @@ export default class GameScene extends Phaser.Scene {
       blendMode: 'ADD'
     });
     if (!accent) return;
+    if (charged && chargeTier > 0) this.spawnHighComboBeatParticles(x, y, chargeTier, { hit: false });
 
     const sx = accent.scaleX;
     const sy = accent.scaleY;
@@ -6937,8 +6767,6 @@ export default class GameScene extends Phaser.Scene {
       const dy = enemy.y - this.player.y;
       let d2 = dx * dx + dy * dy;
 
-      // 土豆是「吸火坦克」：相近距离下更容易成为自动月牙目标，
-      // 但不是绝对嘲讽，真正贴脸的小怪仍会被优先处理。
       if (enemy.enemyType === 'potato') {
         d2 *= 0.85 * 0.85;
       }
@@ -6961,9 +6789,13 @@ export default class GameScene extends Phaser.Scene {
     const damage = bullet.damage;
     const crescentLevel = bullet.crescentLevel ?? 1;
     const charged = bullet.charged === true;
+    const chargeTier = Math.max(0, bullet.beatChargeComboTier || 0);
+    const volleyId = bullet.volleyId;
+    const lifestealLevel = Math.max(0, bullet.lifestealLevel || 0);
     bullet.destroy();
 
     this.createBasicHitSpark(hitX, hitY, hitAngle, crescentLevel, charged);
+    if (charged && chargeTier > 0) this.spawnHighComboBeatParticles(hitX, hitY, chargeTier, { hit: true });
     this.createBasicHitFlash(enemy, charged);
     this.applyBasicHitFeel(enemy, hitAngle, charged);
     if (charged) this.cameras.main.shake(55, 0.00115, false);
@@ -6974,12 +6806,72 @@ export default class GameScene extends Phaser.Scene {
         : Phaser.Math.FloatBetween(0.96, 1.04)
     });
 
-    if (enemy.receiveDamage(damage)) this.killEnemy(enemy);
+    const killed = enemy.receiveDamage(damage);
+    this.applyCrescentLifesteal(volleyId, damage, lifestealLevel);
+    if (killed) this.killEnemy(enemy);
   }
 
+  applyCrescentLifesteal(volleyId, damage, lifestealLevel = this.player?.lifestealLevel ?? 0) {
+    const level = Phaser.Math.Clamp(Math.trunc(Number(lifestealLevel) || 0), 0, 3);
+    if (level <= 0 || !this.player?.active || !Number.isFinite(volleyId)) return 0;
+    if (this.crescentLifestealProcessedVolleys.has(volleyId)) return 0;
+    this.crescentLifestealProcessedVolleys.add(volleyId);
+    this.time.delayedCall(2200, () => this.crescentLifestealProcessedVolleys?.delete?.(volleyId));
+
+    const rate = [0, 0.05, 0.10, 0.15][level] ?? 0;
+    const targetHeal = Math.max(0, Number(damage) || 0) * rate;
+    if (targetHeal <= 0 || this.player.hp >= this.player.maxHp) return 0;
+
+    const before = this.player.hp;
+    this.player.heal(targetHeal);
+    const actual = Math.max(0, this.player.hp - before);
+    if (actual > 0) {
+      const value = actual >= 10 ? Math.round(actual) : Math.round(actual * 10) / 10;
+      this.showWorldText(
+        this.player.x,
+        this.player.y - 64,
+        `红气养人 +${value}`,
+        '#ff8b9c',
+        14,
+        520,
+        { strokeColor: '#57141f', strokeThickness: 3 }
+      );
+    }
+    return actual;
+  }
+
+  spawnCrescentLifestealTrail(bullet, time = this.time.now) {
+    const level = Phaser.Math.Clamp(Math.trunc(Number(bullet?.lifestealLevel) || 0), 0, 3);
+    if (level <= 0 || !bullet?.active) return;
+    const count = level === 1 ? 1 : level === 2 ? 2 : 4;
+    for (let i = 0; i < count; i += 1) {
+      const phase = time * 0.012 + i * (Math.PI * 2 / count) + (bullet.volleyId || 0) * 0.7;
+      const radius = 8 + level * 1.8 + i * 0.6;
+      const px = bullet.x + Math.cos(phase) * radius;
+      const py = bullet.y + Math.sin(phase) * radius * 0.62;
+      const particle = this.add.circle(
+        px,
+        py,
+        level >= 3 && i % 2 === 0 ? 2.2 : 1.5,
+        i % 3 === 0 ? LIFESTEAL_RED_HOT : LIFESTEAL_RED,
+        level >= 3 ? 0.90 : 0.72
+      ).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: particle,
+        x: px - (bullet.body?.velocity?.x || 0) * 0.020 + Phaser.Math.Between(-3, 3),
+        y: py - (bullet.body?.velocity?.y || 0) * 0.020 + Phaser.Math.Between(-3, 3),
+        alpha: 0,
+        scaleX: 0.45,
+        scaleY: 0.45,
+        duration: 150 + level * 22,
+        ease: 'Quad.Out',
+        onComplete: () => particle?.active && particle.destroy()
+      });
+    }
+  }
+
+
   createBasicHitSpark(x, y, angle, crescentLevel = 1, charged = false) {
-    // 0.9.2-dev07：旧 crescentHitArt + Graphics 粒子全部退出。
-    // 命中只播放与该子弹出生等级对应的正式 hit PNG，避免额外元素把分级效果糊在一起。
     const crescentVfx = getCrescentVfxLevel(crescentLevel);
     const impact = this.vfx.spawnImage(crescentVfx.hitKey, x, y, {
       depth: 30,
@@ -7027,8 +6919,6 @@ export default class GameScene extends Phaser.Scene {
     const textureKey = enemy.texture?.key;
     if (!textureKey || !this.textures.exists(textureKey)) return;
 
-    // dev14.21.1：命中瞬间叠一层很短的白 / 冰蓝剪影。
-    // 这是纯视觉 clone，不改敌人碰撞体、AI 或状态 tint。
     const flash = this.add.image(enemy.x, enemy.y, textureKey)
       .setOrigin(enemy.originX, enemy.originY)
       .setFlipX(Boolean(enemy.flipX))
@@ -7065,7 +6955,6 @@ export default class GameScene extends Phaser.Scene {
       ? 2 + (charged ? PLAYER.BEAT_CHARGE_BOSS_EXTRA_KNOCKBACK : 0)
       : (15 + (charged ? PLAYER.BEAT_CHARGE_EXTRA_KNOCKBACK : 0)) * (enemy.knockbackScale ?? 1);
 
-    // Local hit-stop only freezes the target; the scene/music clock never pauses.
     const body = enemy.body;
     if (body) {
       body.enable = false;
@@ -7172,28 +7061,33 @@ export default class GameScene extends Phaser.Scene {
     if (wasPotatoCommander) {
       this.registerKill('potatoCommander');
 
-      // 最终 Boss 仍按 20× 经验生成红色大经验球；Ending 会立即接管战场。
       this.spawnXpGem(x, y, xpValue, 'boss');
       this.startPotatoCommanderEnding(enemy);
       return;
     }
 
-    // 所有普通小怪死亡时都爆出各自主题色血浆。
     if (['duck', 'roach', 'potato', 'ball'].includes(type)) {
       this.createEnemyBloodSplatter(x, y, type);
       this.showLockedEnemyDeathArt(x, y, type);
     }
 
     if (type === 'potato') {
-      console.debug(
-        '[potato-kill]',
-        `lifetime=${Math.max(
-          0,
-          (this.time.now - (enemy.spawnedAt ?? this.time.now)) / 1000
-        ).toFixed(1)}s`,
-        `hits=${enemy.hitsReceived ?? 0}`,
-        `growth=${enemy.holyGrowthLevel ?? 0}`
-      );
+    }
+
+    const supportHeartDropChance = Math.max(
+      0,
+      Number(this.difficultyProfile?.supportHeartKillDropChance) || 0
+    );
+    if (
+      supportHeartDropChance > 0
+      && !wasDuckQueen
+      && !wasPotatoCommander
+      && this.supportHearts.countActive(true) < 2
+    ) {
+      const eliteBoost = enemy.isElite ? 1.75 : 1;
+      if (Math.random() < Math.min(0.25, supportHeartDropChance * eliteBoost)) {
+        this.spawnSupportHeart({ x, y });
+      }
     }
 
     enemy.destroy();
@@ -7211,11 +7105,8 @@ export default class GameScene extends Phaser.Scene {
     if (!enemy.active || enemy.isDead) return;
     if (enemy.beingAbsorbed === true) return;
 
-    // 大发卖纯演绎阶段，小怪与主角之间暂停接触伤害。
-    // 这一段只服务镜头叙事：小怪撤离红水晶地面，不能在恐惧动画中继续撞主角。
     if (this.duckQueenUltimateCutsceneActive && this.isDuckQueenDafamaiEvacuationEnemy(enemy)) return;
 
-    // Boss 特殊接触规则。
     if (enemy.enemyType === 'duckQueen') return;
 
     if (
@@ -7307,8 +7198,6 @@ export default class GameScene extends Phaser.Scene {
       this.player.dashStartedAt - this.lastFlashStepDashStartedAt
     ) < 1;
 
-    // 0.9.2-dev11.3：Combo 在“按下闪身”的 Beat 瞬间结算；
-    // Perfect Dodge 只保留原本的战斗收益，避免同一次闪身再加一份 Combo。
     if (!cameFromFlashStep) {
       this.showWorldText(
         this.player.x,
@@ -7329,8 +7218,6 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => ring.destroy()
     });
 
-    // dev14.21.3：Perfect Dodge 在普通闪步拖尾之上再补一个短促亮点，
-    // 只强化视觉，不增加第二份 Combo / 伤害 / 无敌时间。
     this.spawnDashPerfectAccent(this.player);
 
     const victims = [];
@@ -7365,7 +7252,6 @@ export default class GameScene extends Phaser.Scene {
     return this.importantText?.isSourceFree(source, sourceKey) ?? true;
   }
 
-  // 兼容 PotatoCommander 现有调用；语义已经从“全局 Boss 锁”改为“该角色自己的重要文字通道”。
   isBossImportantTextFree(source = this.potatoCommander) {
     return this.isImportantTextFree(source);
   }
@@ -7398,7 +7284,6 @@ export default class GameScene extends Phaser.Scene {
       shake: options.shake ?? false,
       replaceLowerPriority: options.replaceLowerPriority ?? false,
       coalesceLowPriority: options.coalesceLowPriority ?? false,
-      // 角色来源的重要文字默认轻微延迟跟随；阶段/系统文字可显式关闭。
       followSource: options.followSource ?? true,
       followLagMs: options.followLagMs ?? 150,
       beatSynced: options.beatSynced ?? isSkillPrompt,
@@ -7413,6 +7298,27 @@ export default class GameScene extends Phaser.Scene {
     fontSize = 19,
     options = {}
   ) {
+    if (!source?.active) return false;
+
+
+    const isBoss = source.isBoss === true
+      || ['duckQueen', 'potatoCommander'].includes(source.enemyType);
+
+    if (isBoss) {
+      return this.showBossSkillHudText(
+        source,
+        text,
+        color,
+        fontSize,
+        options.durationMs ?? 1500,
+        options
+      );
+    }
+
+    const originY = Number.isFinite(source.originY) ? source.originY : 0.5;
+    const displayHeight = Math.max(0, Math.abs(Number(source.displayHeight) || Number(source.height) || 0));
+    const visualTopOffset = displayHeight * originY + 16;
+
     return this.showImportantWorldText(
       source,
       text,
@@ -7423,13 +7329,74 @@ export default class GameScene extends Phaser.Scene {
         ...options,
         kind: 'skill',
         beatSynced: true,
+        yOffset: Math.max(68, visualTopOffset, Number(options.yOffset) || 0),
         gapMs: options.gapMs ?? 220
       }
     );
   }
 
-  // 0.9.2-dev07.1-B.3：玩家自动/周期型技能只显示 2 拍（120 BPM 下约 1000ms）。
-  // 主动技能与敌方核心技能仍继续使用 showSkillImportantWorldText 的 3 拍默认值。
+  showBossSkillHudText(
+    source,
+    text,
+    color = '#ffffff',
+    fontSize = 19,
+    durationMs = 1500,
+    options = {}
+  ) {
+    if (!source?.active || !text) return false;
+
+    const sourceType = source.enemyType ?? 'boss';
+    const safeTop = this.mobileHudSafeTop ?? 0;
+    const isCommander = sourceType === 'potatoCommander';
+
+    if (this.bossSkillHudText?.active) {
+      this.tweens.killTweensOf(this.bossSkillHudText);
+      this.bossSkillHudText.destroy();
+    }
+
+    const y = safeTop + (isCommander ? 158 : 66);
+    const label = this.add.text(
+      this.getResponsiveVisibleRect?.().centerX ?? GAME.WIDTH / 2,
+      y,
+      text,
+      {
+        fontSize: `${fontSize}px`,
+        fontStyle: 'bold',
+        color,
+        stroke: '#000000',
+        strokeThickness: 4,
+        align: 'center',
+        wordWrap: { width: 520, useAdvancedWrap: true }
+      }
+    )
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(188)
+      .setAlpha(1);
+
+    this.bossSkillHudText = label;
+    this.bossSkillHudSourceType = sourceType;
+
+    const life = Phaser.Math.Clamp(Number(durationMs) || 1500, 900, 2200);
+    const fadeMs = Math.min(320, Math.max(180, Math.round(life * 0.22)));
+    this.tweens.add({
+      targets: label,
+      alpha: 0,
+      duration: fadeMs,
+      delay: Math.max(0, life - fadeMs),
+      ease: 'Quad.In',
+      onComplete: () => {
+        if (label?.active) label.destroy();
+        if (this.bossSkillHudText === label) {
+          this.bossSkillHudText = null;
+          this.bossSkillHudSourceType = null;
+        }
+      }
+    });
+
+    return true;
+  }
+
   showPassiveSkillImportantWorldText(
     source,
     text,
@@ -7512,8 +7479,6 @@ export default class GameScene extends Phaser.Scene {
   ) {
     if (!source?.active) return false;
 
-    // 阶段切换是高优先级事件：可以替换同一角色尚未播完的普通剧情台词，
-    // 但不会影响其它角色的重要文字。
     const effectiveDurationMs = Phaser.Math.Clamp(durationMs, 2500, 3000);
 
     return this.showImportantWorldText(
@@ -7527,78 +7492,9 @@ export default class GameScene extends Phaser.Scene {
         gapMs: 420,
         yOffset: 72,
         replaceLowerPriority: true,
-        // 阶段名属于阶段提示，保持在触发位置，不跟随角色移动。
         followSource: false
       }
     );
-  }
-
-  showPotatoCommanderDebugAsset(direction = 1) {
-    const entries = this.debugPotatoAssetKeys ?? [];
-    if (entries.length === 0) return;
-
-    this.debugPotatoAssetIndex = Phaser.Math.Wrap(
-      this.debugPotatoAssetIndex + direction,
-      0,
-      entries.length
-    );
-
-    const [textureKey, label] = entries[this.debugPotatoAssetIndex];
-    if (!this.textures.exists(textureKey)) {
-      this.showScreenNotice(`「素材未加载：${label}」`, '#ff9b9b');
-      return;
-    }
-
-    this.closePotatoCommanderDebugAsset(false);
-
-    const frame = this.textures.getFrame(textureKey);
-    const sourceWidth = Math.max(1, frame?.realWidth ?? frame?.width ?? 1);
-    const sourceHeight = Math.max(1, frame?.realHeight ?? frame?.height ?? 1);
-    const maxWidth = 520;
-    const maxHeight = 330;
-    const scale = Math.min(maxWidth / sourceWidth, maxHeight / sourceHeight);
-
-    const backdrop = this.add.rectangle(
-      GAME.WIDTH / 2,
-      GAME.HEIGHT / 2,
-      Math.min(GAME.WIDTH - 80, sourceWidth * scale + 56),
-      Math.min(GAME.HEIGHT - 90, sourceHeight * scale + 74),
-      0x11131a,
-      0.78
-    ).setScrollFactor(0).setDepth(19990);
-
-    const image = this.add.image(
-      GAME.WIDTH / 2,
-      GAME.HEIGHT / 2 - 8,
-      textureKey
-    ).setScrollFactor(0).setDepth(19991).setScale(scale);
-
-    const caption = this.add.text(
-      GAME.WIDTH / 2,
-      GAME.HEIGHT - 42,
-      `「${this.debugPotatoAssetIndex + 1}/${entries.length} · ${label} · M上一张 / N下一张 / V关闭」`,
-      {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '15px',
-        color: '#f6dfab',
-        stroke: '#1a1510',
-        strokeThickness: 3
-      }
-    ).setOrigin(0.5).setScrollFactor(0).setDepth(19992);
-
-    this.debugPotatoAssetPreview = { backdrop, image, caption };
-  }
-
-  closePotatoCommanderDebugAsset(resetIndex = false) {
-    const preview = this.debugPotatoAssetPreview;
-    if (preview) {
-      preview.backdrop?.destroy();
-      preview.image?.destroy();
-      preview.caption?.destroy();
-      this.debugPotatoAssetPreview = null;
-    }
-
-    if (resetIndex) this.debugPotatoAssetIndex = -1;
   }
 
   onPotatoCommanderSpawned(commander) {
@@ -7612,31 +7508,32 @@ export default class GameScene extends Phaser.Scene {
     this.commanderJudgmentActive = false;
     this.bossActive = true;
 
-    // 登场提示与阶段名共用同一重要文字通道，避免刚出场时重叠。
-    this.showBossImportantWorldText(
-      commander,
-      '「🥔 土豆指挥官出现！」',
-      '#f0d083',
-      24,
-      2200
-    );
+    {
+      this.showBossImportantWorldText(
+        commander,
+        '「🥔 土豆指挥官出现！」',
+        '#f0d083',
+        24,
+        2200
+      );
 
-    this.showScreenNotice(
-      '「Final Boss：土豆指挥官」',
-      '#f0d083'
-    );
+      this.showScreenNotice(
+        '「Final Boss：土豆指挥官」',
+        '#f0d083'
+      );
 
-    this.queueBossPhaseText(
-      commander,
-      '「童年回忆」',
-      '#f5dca5',
-      20,
-      2300
-    );
+      this.queueBossPhaseText(
+        commander,
+        '「童年回忆」',
+        '#f5dca5',
+        20,
+        2300
+      );
 
-    this.createPotatoCommanderHud(
-      '「土豆指挥官 · 童年回忆」'
-    );
+      this.createPotatoCommanderHud(
+        '「土豆指挥官 · 童年回忆」'
+      );
+    }
   }
 
   onPotatoCommanderPhaseChanged(commander, phase) {
@@ -7682,8 +7579,6 @@ export default class GameScene extends Phaser.Scene {
       calculate: '#e6d0a7'
     };
 
-    // 剧情台词统一进入角色自己的重要文字队列。
-    // 低优先级剧情不会盖住阶段名 / 核心技能名；若队列已积压剧情则合并掉重复压力。
     return this.showImportantWorldText(
       commander,
       text,
@@ -7704,7 +7599,6 @@ export default class GameScene extends Phaser.Scene {
   createCommanderGroupSummonCircle(commander, durationMs) {
     if (!commander?.active) return null;
 
-    // strong_beat 同类视角：压扁的贴地椭圆，不使用正圆 / 复杂法阵。
     const circle = this.add.graphics();
     circle.setDepth(Math.max(1, (commander.depth ?? 13) - 2));
     circle.setPosition(commander.x, commander.y + 48);
@@ -7712,8 +7606,6 @@ export default class GameScene extends Phaser.Scene {
     const draw = (intensity = 1) => {
       circle.clear();
 
-      // 稍微放大，让召唤光圈完整包住指挥官脚底轮廓。
-      // S4「神恩归一」只加入少量红色，不改变前三阶段的白金 / 淡金基调。
       const isFinalStage = commander.currentPhase === 'calculate';
       const fillColor = isFinalStage ? 0xffb39f : 0xffeab0;
       const outerColor = isFinalStage ? 0xff9a72 : 0xffd56a;
@@ -7732,7 +7624,6 @@ export default class GameScene extends Phaser.Scene {
       circle.lineStyle(2, 0xffffe8, 0.76 * intensity);
       circle.strokeEllipse(0, 0, 142, 32);
 
-      // 少量十字星点即可，保持 2D、简洁，不做华丽宗教纹样。
       const stars = [
         [-54, -4], [52, 5], [-25, 9], [28, -8]
       ];
@@ -7869,7 +7760,6 @@ export default class GameScene extends Phaser.Scene {
     potato.setScale(baseScale * 0.90, baseScale * 0.46);
     potato.setAngle(0);
 
-    // 上升期间先关闭碰撞，避免“还在地下”就撞到主角。
     if (potato.body) potato.body.enable = false;
 
     this.createCommanderGroupGroundMound(
@@ -7889,7 +7779,6 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => {
         if (!potato.active || potato.isDead) return;
 
-        // 完全出现后原地跳一下，再正式投入追击。
         this.tweens.add({
           targets: potato,
           y: groundY - 13,
@@ -7906,8 +7795,6 @@ export default class GameScene extends Phaser.Scene {
               ENEMIES.potatoCommander.groupBuffMs
             );
 
-            // S4 抱团结束后，立即从新旧土豆中补齐少量“信徒环”；
-            // 其余土豆继续作为前线单位追击暗月。
             if (commander.phaseIndex >= 3) {
               this.maintainCommanderFollowerRing?.(commander);
             }
@@ -7936,9 +7823,6 @@ export default class GameScene extends Phaser.Scene {
   commanderEveryoneTogether(commander) {
     if (!commander?.active) return;
 
-    // Step 4A-C：废弃旧的“现有土豆直接冲 + 缺少时从屏幕边缘补”的表现。
-    // 新流程：抱团 PNG 全程保持 → 脚底召唤光晕 → 新土豆从地下上升
-    // → 原地跳一下 → 再朝主角靠近。
     const currentPotatoes = this.getActiveCommanderPotatoCount();
     const populationDeficit = Math.max(
       0,
@@ -8002,8 +7886,6 @@ export default class GameScene extends Phaser.Scene {
     const widthByPhase = [0, 250, 275, 305];
     const impactWidth = widthByPhase[clampedPhase] ?? 275;
 
-    // Stage 4 adds a restrained crimson ground glow, while the locked impact PNG
-    // remains shared by stages 2–4.
     let crimsonGlow = null;
     if (clampedPhase === 3) {
       crimsonGlow = this.add.ellipse(
@@ -8072,8 +7954,6 @@ export default class GameScene extends Phaser.Scene {
     ];
 
     for (let i = 0; i < dustCount; i += 1) {
-      // Stage 4 keeps the landing grounded in dust, but roughly one quarter
-      // of the motes carry a restrained crimson accent.
       const useCrimson = clampedPhase === 3 && i % 4 === 0;
       const palette = useCrimson ? crimsonPalette : earthPalette;
       const color = Phaser.Utils.Array.GetRandom(palette);
@@ -8110,7 +7990,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // A few low, wide puffs skim along the combat plane to sell the heavy landing.
     const skimCount = clampedPhase === 3 ? 5 : 4;
     for (let i = 0; i < skimCount; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -8220,7 +8099,6 @@ export default class GameScene extends Phaser.Scene {
       if (warning?.active) warning.destroy();
       if (!this.player?.active || this.player.hp <= 0) return;
 
-      // 直接使用清晰的点赞手势，从地面快速“窜”出来；攻击本身不依赖 emoji 的碰撞尺寸。
       const thumb = this.add.text(x, strikeY + 82, '👍', {
         fontFamily: 'Arial, sans-serif',
         fontSize: '78px'
@@ -8323,7 +8201,6 @@ export default class GameScene extends Phaser.Scene {
     this.commanderSkySmashActive = true;
     const castPhaseIndex = Phaser.Math.Clamp(commander.phaseIndex, 1, 3);
 
-    // Step 5: stages 2–4 use their locked 「下凡」 pose for the entire ascent/descent.
     commander.showSmashSkillArt?.();
 
     const skySmashLine = Phaser.Utils.Array.GetRandom([
@@ -8346,8 +8223,6 @@ export default class GameScene extends Phaser.Scene {
     const warningStroke = castPhaseIndex === 3 ? 0xe86a59 : 0xf2cc79;
     const warningFill = castPhaseIndex === 3 ? 0xb94a40 : 0xe7bd63;
 
-    // Flattened ground warning matches the game's oblique combat plane better than
-    // the old top-down circle.
     const warning = this.add.ellipse(
       targetX,
       targetY + 14,
@@ -8448,7 +8323,6 @@ export default class GameScene extends Phaser.Scene {
                   castPhaseIndex
                 );
 
-                // Strong landing feedback, still below 「圣裁」 in visual hierarchy.
                 this.cameras.main.flash(
                   90,
                   castPhaseIndex === 3 ? 255 : 255,
@@ -8504,8 +8378,6 @@ export default class GameScene extends Phaser.Scene {
 
                   const knockbackDirection = approachDirection.clone().negate().normalize();
 
-                  // 固定 20~30px 容易仍藏在 Boss 身后。这里根据当前显示轮廓算出至少需要
-                  // 多远才能把主角中心推到 Boss 轮廓外，并保留一小段间隙。
                   const relativePlayer = new Phaser.Math.Vector2(
                     this.player.x - targetX,
                     this.player.y - targetY
@@ -8546,8 +8418,6 @@ export default class GameScene extends Phaser.Scene {
                   );
                 }
 
-                // S2 / S3 / S4 分别停留 0.65 / 0.75 / 0.90 秒。
-                // 整段期间 commanderSkySmashActive 保持 true，因此 Boss 不会提前移动或接下一招。
                 const landingPhaseSlot = Phaser.Math.Clamp(castPhaseIndex - 1, 0, 2);
                 const landingHoldMs = ENEMIES.potatoCommander.skySmashLandingHoldMsByPhase?.[landingPhaseSlot] ?? 650;
                 this.time.delayedCall(landingHoldMs, () => finishSmash());
@@ -8604,7 +8474,6 @@ export default class GameScene extends Phaser.Scene {
     potato.setAlpha(0);
     if (potato.body) potato.body.enable = false;
 
-    // 程序化 BOOM：中心高亮、火色体积、冲击环、地面压圈与碎屑。
     const flash = this.add.circle(x, y - 2, 18, 0xffffff, 0.96)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(45);
@@ -8885,7 +8754,6 @@ export default class GameScene extends Phaser.Scene {
         this.time.delayedCall(releaseMs, () => {
           if (potato?.active && !potato.isDead) {
             potato.releaseBlessing?.();
-            // 三段变绿节奏完整结束以后，才正式进入“危险闪烁 → 追人 → 贴脸自爆”。
             if ((potato.holyGrowthLevel ?? 0) >= 3) {
               potato.beginHolySelfDestruct?.(selfDestructCycleId, this.time.now);
             } else {
@@ -8954,8 +8822,6 @@ export default class GameScene extends Phaser.Scene {
     commander.setVelocity(0, 0);
     commander.showGraceSkillArt?.();
 
-    // 每次「圣恩有价」本身就是一次圣裁前置计数；与最终榨取了几只土豆无关。
-    // 第三个十字在技能起手时立即点亮，但会等本次榨取演出完整结束后再进入圣裁。
     const judgmentCount = commander.addJudgmentGraceCast?.() ?? 0;
     const judgmentRequired = config.judgmentGraceCastsRequired ?? 3;
     const judgmentArmed = judgmentCount >= judgmentRequired;
@@ -9127,7 +8993,6 @@ export default class GameScene extends Phaser.Scene {
       const faithValue = Number(faithValues[growth] ?? 1);
 
       const link = this.add.graphics().setDepth(11.7);
-      // 红金双层抽取线：红色是“代价”，金色仍保留“圣恩 / 信仰”外观。
       link.lineStyle(11, 0xa92537, 0.20);
       link.lineBetween(potato.x, potato.y - 2, commander.x, commander.y + 8);
       link.lineStyle(7, 0xff4f59, 0.28);
@@ -9182,7 +9047,6 @@ export default class GameScene extends Phaser.Scene {
 
       potato.once('destroy', () => cleanup(false));
 
-      // 持续不断的多点红金粒子流：不是只在四个脉冲点闪一下，整个抽取阶段都沿连线向 Boss 汇流。
       streamEvent = this.time.addEvent({
         delay: config.absorbStreamIntervalMs ?? 90,
         repeat: Math.max(1, Math.ceil(durationMs / (config.absorbStreamIntervalMs ?? 90)) - 1),
@@ -9207,8 +9071,6 @@ export default class GameScene extends Phaser.Scene {
           link.setAlpha(1);
           floorGlow.setAlpha(0.94);
 
-          // 每一拍都能看见“正在被榨干”，但在最后结算前始终留 1HP，
-          // 因此玩家仍可主动击杀目标、阻断 Boss 的完整收益。
           const drainDamage = Math.max(1, Math.round(potato.maxHp * (0.12 + pulseIndex * 0.015)));
           potato.hp = Math.max(1, potato.hp - drainDamage);
 
@@ -9233,7 +9095,6 @@ export default class GameScene extends Phaser.Scene {
           return;
         }
 
-        // 完整榨取：土豆不会掉经验，而是作为“信徒资源”被 Boss 消耗掉。
         const desiredHeal = layerMaxHp * config.absorbHealRatioPerFaith * faithValue;
         const healRoom = Math.max(0, healCap - castState.healed);
         const healed = commander.healActiveLayer(Math.min(desiredHeal, healRoom));
@@ -9282,9 +9143,6 @@ export default class GameScene extends Phaser.Scene {
       if (!commander?.active || commander.isDead) return;
       commander.restoreNormalAfterGrace?.();
 
-      // v1.0.30：第三枚十字只负责把 Ultimate 置为 READY。
-      // 「下黑水」不再由「圣恩有价」技能函数硬调用，而由 PotatoCommander 外层调度器
-      // 在本次榨取完整结束后独立判定并启动，和丹麦鸭「大发卖」的管理方式一致。
       if (judgmentArmed && commander.judgmentPending === true) {
         commander.nextActionAt = Math.min(commander.nextActionAt ?? Infinity, this.time.now + 240);
       }
@@ -9424,10 +9282,6 @@ export default class GameScene extends Phaser.Scene {
     return styles[sourceType] ?? styles.default;
   }
 
-  // Legacy reference for automated regression check:
-  // const tierFontSize = amount <= 3 ? 16 : amount <= 8 ? 22 : 30;
-  // const tierRise = amount <= 3 ? 28 : amount <= 8 ? 40 : 54;
-  // duration: 130
   showHpDamageText(sourceType, x, y, damage, options = {}) {
     const amount = Math.max(0, Math.round(Number(damage) || 0));
     if (amount <= 0) return null;
@@ -9738,8 +9592,6 @@ export default class GameScene extends Phaser.Scene {
     let x = globalDrop.x;
     let targetY = globalDrop.y;
 
-    // 原圣裁仍支持固定锚点；下黑水只给少量“剧情十字”显式 targetX/targetY，
-    // 其余几十枚继续走 4×3 全屏随机轮换，不追踪主角。
     const forcedX = Number(options?.targetX);
     const forcedY = Number(options?.targetY);
     if (Number.isFinite(forcedX) && Number.isFinite(forcedY)) {
@@ -9861,11 +9713,9 @@ export default class GameScene extends Phaser.Scene {
           if (this.commanderBlackwaterPreviewActive) {
             this.spawnCommanderBlackwaterInkImpactAccent(x, targetY + 10, stageIndex);
             this.playCommanderBlackwaterImpactSfx(stageIndex, frenzyClamped, scriptedCross);
-            // 下黑水十字不仅砸地，也会直接砸死落点附近的小怪；Boss 不参与这个判定。
             this.killCommanderBlackwaterMinionsNearImpact(x, targetY, stageIndex, scriptedCross);
           }
 
-          // 下黑水：所有真实落地十字都留下坑。阶段越后，混入中坑的比例越高。
           if (this.commanderBlackwaterPreviewActive) {
             let craterSize = options?.craterSize;
             if (!['small', 'medium'].includes(craterSize)) {
@@ -9878,8 +9728,6 @@ export default class GameScene extends Phaser.Scene {
               persistentMs: config.blackwaterCraterPersistMs ?? 11000,
               depth: 19890
             });
-            // v1.0.26：疯狂阶段要留下“狂砸过”的结果。高密度十字落地时额外炸出少量卫星坑，
-            // 用小尺寸、错位的坑填满空地；不改变十字数量与人物动作时间轴。
             if (stageIndex === 2 && (this.commanderBlackwaterCraters?.length ?? 0) < 180) {
               const satelliteChance = Phaser.Math.Linear(0.38, 0.72, frenzyClamped);
               if (Math.random() < satelliteChance) {
@@ -9929,7 +9777,6 @@ export default class GameScene extends Phaser.Scene {
     const duration = Math.max(260, durationMs);
     const view = this.cameras.main.worldView;
 
-    // 主角：不改变实际受击结算，只做紧张 / 被震慑的视觉演绎。
     const player = this.player;
     if (player?.active && player.hp > 0) {
       player.judgmentPanicTween?.stop();
@@ -9951,7 +9798,6 @@ export default class GameScene extends Phaser.Scene {
         }
       });
 
-      // 轻微的白金受压闪烁，让“慌乱”不是单纯抖动。
       const playerFlash = this.time.addEvent({
         delay: 145,
         repeat: Math.max(1, Math.floor(duration / 145) - 1),
@@ -9966,7 +9812,6 @@ export default class GameScene extends Phaser.Scene {
       this.time.delayedCall(duration + 80, () => playerFlash?.remove(false));
     }
 
-    // 小怪：最后一段十字暴雨时短暂慌乱、停顿、乱晃；Boss 不参与。
     const visible = [];
     this.enemies.children.iterate((enemy) => {
       if (
@@ -10017,7 +9862,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 慌乱阶段本身就有一层持续低频震动，终爆另有更强震动。
     this.cameras.main.shake(duration, 0.0022);
   }
 
@@ -10025,7 +9869,6 @@ export default class GameScene extends Phaser.Scene {
     const config = ENEMIES.potatoCommander;
     const afterimageMs = config.judgmentAfterimageMs ?? 680;
 
-    // 白灼余像：不瞬间恢复，像被终爆闪到眼睛。
     const burn = this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0xfffdf2, 0.28)
       .setOrigin(0)
       .setScrollFactor(0)
@@ -10039,7 +9882,6 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => burn.destroy()
     });
 
-    // 大型十字轮廓残影：不是继续攻击，只是爆炸后的视网膜余像。
     const count = 7;
     for (let i = 0; i < count; i += 1) {
       const gx = Phaser.Math.Between(70, GAME.WIDTH - 70);
@@ -10189,8 +10031,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 顶点爆发：先红金预闪 → 纯白整屏炸开 → 金白余波。
-    // 白屏保留一个很短的“灼眼停顿”，让爆炸不是一闪而过。
     const whiteout = this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0xffffff, 0)
       .setOrigin(0)
       .setScrollFactor(0)
@@ -10225,7 +10065,6 @@ export default class GameScene extends Phaser.Scene {
     if (this.player?.active && this.player.hp > 0) {
       this.player.judgmentPanicTween?.stop();
       this.player.judgmentPanicTween = null;
-      // stop() 不会触发 panic tween 的 onComplete，所以这里必须主动恢复不透明。
       this.player.setAlpha(1);
       this.player.clearTint?.();
       const judgmentKnockdownDelayMs = 105;
@@ -10277,7 +10116,6 @@ export default class GameScene extends Phaser.Scene {
       this.time.now + (config.judgmentSpawnBreatherMs ?? 1500)
     );
 
-    // 三枚十字在裁决完成时共同闪一下，然后回到灰色，开始下一轮积累。
     if ((this.judgmentHudCrosses ?? []).some((cross) => cross?.active)) {
       this.tweens.add({
         targets: this.judgmentHudCrosses,
@@ -10319,9 +10157,7 @@ export default class GameScene extends Phaser.Scene {
       || this.commanderBlackwaterPreviewActive === true
     ) return false;
 
-    // Internal Test v1.0.11：正式三十字流程进入「下黑水」，
-    // 演绎内部恢复原版全屏圣裁十字雨；DEBUG 直发仍走同一条演绎函数。
-    return this.startCommanderBlackwaterCutscene(commander, { debugPreview: false });
+    return this.startCommanderBlackwaterCutscene(commander);
   }
 
   startCommanderJudgmentLegacy(commander) {
@@ -10375,8 +10211,6 @@ export default class GameScene extends Phaser.Scene {
         if (stageIndex === 1) {
           phaseInterval = Math.max(96, Math.round(Phaser.Math.Linear(baseInterval * 1.16, baseInterval * 0.72, progress)));
         } else if (stageIndex === 2) {
-          // 最后一段不是线性变快，而是在后半段突然“塌缩”成暴雨。
-          // cubicProgress 让前半段仍有躲避空间，最后 35% 才明显失控。
           const cubicProgress = progress * progress * progress;
           phaseInterval = Math.max(7, Math.round(
             Phaser.Math.Linear(baseInterval * 1.36, 7, cubicProgress)
@@ -10582,7 +10416,6 @@ export default class GameScene extends Phaser.Scene {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, 520, 300);
 
-    // 桌面 / 锅体。
     ctx.fillStyle = '#69462f';
     ctx.fillRect(0, 235, 520, 65);
     ctx.fillStyle = '#2a3038';
@@ -10602,7 +10435,6 @@ export default class GameScene extends Phaser.Scene {
     ctx.ellipse(260, 151, 143, 54, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 土豆块。
     const potatoPieces = [
       [176, 145, 33, 22, -0.18], [231, 176, 35, 23, 0.20], [315, 144, 37, 23, -0.12],
       [350, 173, 29, 20, 0.28], [270, 131, 32, 21, 0.10], [205, 119, 28, 18, -0.30]
@@ -10621,7 +10453,6 @@ export default class GameScene extends Phaser.Scene {
       ctx.restore();
     });
 
-    // Q版鸭头：明确是“鸭”，但保持是最后一张梗图而非血腥画面。
     ctx.fillStyle = '#f2d65f';
     ctx.strokeStyle = '#855e24';
     ctx.lineWidth = 4;
@@ -10637,7 +10468,6 @@ export default class GameScene extends Phaser.Scene {
     ctx.ellipse(293, 115, 22, 9, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 蒸汽。
     ctx.strokeStyle = 'rgba(255,255,255,0.72)';
     ctx.lineWidth = 6;
     ctx.lineCap = 'round';
@@ -10648,7 +10478,6 @@ export default class GameScene extends Phaser.Scene {
       ctx.stroke();
     });
 
-    // v1.1.1：最终梗图标题必须和暖色背景拉开；增加暗底、粗描边与亮色填充。
     ctx.fillStyle = 'rgba(25, 18, 14, 0.78)';
     ctx.beginPath();
     ctx.roundRect(168, 241, 184, 46, 14);
@@ -10780,7 +10609,7 @@ export default class GameScene extends Phaser.Scene {
     const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
     const ss = String(seconds % 60).padStart(2, '0');
     const totalKills = this.getKillStatEntries().reduce((sum, entry) => sum + entry.count, 0);
-    const difficultyLabel = this.difficultyProfile?.label ?? '简单';
+    const difficultyLabel = this.difficultyProfile?.label ?? '普通';
     const difficultyStyle = this.getDifficultySummaryStyle();
     const hp = Math.max(0, Math.round(Number(this.player?.hp) || 0));
     const maxHp = Math.max(1, Math.round(Number(this.player?.maxHp) || 1));
@@ -10854,7 +10683,6 @@ export default class GameScene extends Phaser.Scene {
       );
     });
 
-    // 分类击杀：直接把称号门槛相关的四类战绩摆在总结页上，让玩家知道称号从哪里来。
     const killRows = [
       [`紫蟑螂`, roachKills, '#a447bf', `鸭子`, duckKills, '#f3d85b'],
       [`土豆`, potatoKills, '#c8895f', `足球`, ballKills, '#f2f2f2']
@@ -10958,7 +10786,6 @@ export default class GameScene extends Phaser.Scene {
     addCredit('特别鸣谢：乘风破浪的东宫', 342, { color: '#94d5f3' });
     addCredit('灵感来源：土豆炖鸭', 386, { color: '#ffd7a0' });
 
-    // v1.1.1：鸣谢停留明显延长，让每一行都有足够阅读时间。
     this.schedulePotatoCommanderEnding(650, () => {
       credits.forEach((item, index) => {
         this.tweens.add({
@@ -10979,7 +10806,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 最后一张“土豆炖鸭”梗图。标题已经在 CanvasTexture 内改成高对比亮字 + 深描边 + 暗底。
     let finalFrame = null;
     let finalPicture = null;
     this.schedulePotatoCommanderEnding(10100, () => {
@@ -11016,7 +10842,6 @@ export default class GameScene extends Phaser.Scene {
   showPotatoCommanderFrogCredits() {
     if (!this.potatoCommanderEndingActive) return;
 
-    // 主角结算结束、土豆消失之后，青蛙立刻登场；从这一刻起《小跳蛙长版》持续循环到返回标题。
     this.hideDuckQueenVictoryEndingCutin({ slideRight: false, duration: 160 });
     if (this.player?.active) this.player.setAlpha(0);
 
@@ -11064,7 +10889,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.startPotatoCommanderFrogMusic();
 
-    // 青蛙先单独跳一拍，再下移给战斗总结让位；音乐始终不断。
     this.schedulePotatoCommanderEnding(620, () => {
       if (!frog?.active) return;
       this.tweens.killTweensOf(frog);
@@ -11091,7 +10915,6 @@ export default class GameScene extends Phaser.Scene {
       this.createPotatoCommanderBattleSummaryCard();
     });
 
-    // v1.1.2：战斗总结延长到约 9.5 秒，给玩家足够时间阅读统计与多枚称号。
     this.schedulePotatoCommanderEnding(10200, () => {
       this.hidePotatoCommanderBattleSummaryCard(620);
     });
@@ -11107,7 +10930,6 @@ export default class GameScene extends Phaser.Scene {
           duration: 1250,
           ease: 'Sine.InOut',
           onComplete: () => {
-            // 鸣谢章节必须是纯黑：总结结束后彻底移除青蛙并隐藏旗杆舞台。
             if (frog?.active) frog.destroy();
             this.potatoCommanderEndingFrog = null;
             const flagParts = this.potatoCommanderEndingFlagParts ?? {};
@@ -11195,11 +11017,10 @@ export default class GameScene extends Phaser.Scene {
 
     const blackoutMs = 1500;
     const brightenMs = 1600;
-    // v1.1.1：《送别》约 13.14s，主拍约每 0.82s 一次。败北段按真实音乐主拍卡点。
     const sendoffStartAt = blackoutMs;
     const sendoffDurationMs = 13140;
     const flagRiseStartAt = sendoffStartAt + 850;
-    const flagRiseMs = 3330; // 约从 0.85s 主拍升到 4.18s 主拍。
+    const flagRiseMs = 3330;
     const lineAt = sendoffStartAt + 5790;
     const lineFadeAt = sendoffStartAt + 11920;
     const victoryMusicStartAt = sendoffStartAt + sendoffDurationMs + 120;
@@ -11211,7 +11032,6 @@ export default class GameScene extends Phaser.Scene {
       if (prepared || !this.potatoCommanderEndingActive) return;
       prepared = true;
 
-      // 战场在黑场里被纯色 Ending 舞台覆盖，避免任何小怪/坑洞抢戏。
       const backdrop = this.trackPotatoCommanderEndingFx(
         this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x111820, 1)
           .setOrigin(0)
@@ -11228,10 +11048,8 @@ export default class GameScene extends Phaser.Scene {
       this.potatoCommanderEndingFlagParts = flagParts;
       flagParts.flag.setY(flagParts.bottomY);
 
-      // 《送别》从黑场换景 / 渐亮这一刻开始。旗子稍后在第一个主拍进入升旗。
       this.startPotatoCommanderSendoffMusic();
 
-      // v1.1.2：黑场结束后第一眼就直接是锁定的败北 PNG，不再从战斗母版切换。
       const actor = this.trackPotatoCommanderEndingFx(
         this.add.image(GAME.WIDTH / 2 - 112, 390, 'potatoCommanderEndingDefeatedArt')
           .setScrollFactor(0)
@@ -11241,9 +11059,7 @@ export default class GameScene extends Phaser.Scene {
           .setAlpha(1)
       );
       this.potatoCommanderEndingBossActor = actor;
-      // 胜利 cut-in helper 会把“败北 Boss”压暗；复用同一个槽位，演出逻辑和丹麦鸭一致。
       this.duckQueenVictoryEndingDefeatActor = actor;
-      // 只保留轻微趴地抽泣，不再生成任何程序泪滴。
       this.tweens.add({
         targets: actor,
         y: actor.y + 5,
@@ -11276,7 +11092,6 @@ export default class GameScene extends Phaser.Scene {
     );
     this.schedulePotatoCommanderEnding(blackoutMs + 40, prepareInBlack);
 
-    // 第一个《送别》主拍开始升旗，约四拍升到顶。
     this.schedulePotatoCommanderEnding(flagRiseStartAt, () => {
       const flag = this.potatoCommanderEndingFlag;
       if (!flag?.active) return;
@@ -11307,7 +11122,6 @@ export default class GameScene extends Phaser.Scene {
       if (line?.active) this.tweens.add({ targets: line, alpha: 0, duration: 220, ease: 'Sine.In' });
     });
 
-    // 台词演完以后，完全复用丹麦鸭 0927 六帧胜利结算卡点。
     this.schedulePotatoCommanderEnding(victoryMusicStartAt, () => {
       const sendoff = this.potatoCommanderEndingAudio?.sendoff;
       try { sendoff?.stop?.(); } catch (_) {}
@@ -11353,7 +11167,6 @@ export default class GameScene extends Phaser.Scene {
       this.hideDuckQueenVictoryEndingCutin({ slideRight: true, duration: 220 });
     });
 
-    // 主角结算完整结束后，土豆才像丹麦鸭一样逐渐消失。
     this.schedulePotatoCommanderEnding(victoryCueAt(8120), () => {
       const actor = this.potatoCommanderEndingBossActor;
       if (!actor?.active) return;
@@ -11388,7 +11201,6 @@ export default class GameScene extends Phaser.Scene {
       this.showPotatoCommanderFrogCredits();
     });
 
-    // 原本战斗中的 Boss 本体在黑屏下即可移除；Ending 使用独立演员，避免物理 / AI 残留。
     this.schedulePotatoCommanderEnding(blackoutMs + 80, () => {
       if (commander?.active) commander.destroy();
       this.potatoCommander = null;
@@ -11411,7 +11223,6 @@ export default class GameScene extends Phaser.Scene {
       ) {
         victims.push(enemy);
       } else {
-        // 精英怪不是「小怪」，结局时直接淡出，保持画面清爽。
         this.tweens.add({
           targets: enemy,
           alpha: 0,
@@ -11485,7 +11296,6 @@ export default class GameScene extends Phaser.Scene {
 
     if (!theme || !splatKeys?.length) return;
 
-    // 保留原来的瞬间爆浆小血点：先爆，再留下长期地面痕迹。
     const droplets = Phaser.Math.Between(5, 8);
     for (let i = 0; i < droplets; i += 1) {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -11539,7 +11349,6 @@ export default class GameScene extends Phaser.Scene {
       .setDisplaySize(width, height)
       .setAngle(Phaser.Math.FloatBetween(-7, 7));
 
-    // 和旧 Phaser 血浆完全沿用同一生命周期/淡出管理。
     puddle.expiresAt = this.time.now + lifetime;
     puddle.baseBloodAlpha = alpha;
     puddle.bloodSplatType = type;
@@ -11753,8 +11562,6 @@ export default class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(150);
 
-    // Step 3.2：四层血改为“揭层式”叠色血条。
-    // 红在最底层，黄、绿、天蓝依次覆盖；当前层减少多少，就露出下一层多少。
     this.bossBarRedFill = this.add.rectangle(
       x,
       y,
@@ -11794,7 +11601,6 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(153)
       .setVisible(true);
 
-    // 第一层：天蓝色。使用项目应援色 #94d5f3。
     this.bossBarSkyBlueFill = this.add.rectangle(
       x,
       y,
@@ -11833,7 +11639,6 @@ export default class GameScene extends Phaser.Scene {
 
     const hidden = options.hidden !== false;
     const safeTop = this.mobileHudSafeTop ?? 0;
-    // v1.0.16：删除“圣裁”标题 PNG。三枚计数十字直接占用原标题位置。
     const crossY = 116 + safeTop;
     this.judgmentHudTitle = null;
     this.judgmentHudCrosses = [-54, 0, 54].map((offsetX) => (
@@ -11939,875 +11744,6 @@ export default class GameScene extends Phaser.Scene {
     this.judgmentHudVisible = false;
   }
 
-  createGrowthDebugPanel() {
-    if (this.growthDebugPanel?.active) return this.growthDebugPanel;
-
-    const panelWidth = 326;
-    const panelHeight = 396;
-    const panelX = panelWidth / 2 + 10;
-    const panelY = panelHeight / 2 + 10;
-    const panel = this.add.container(panelX, panelY)
-      .setScrollFactor(0)
-      .setDepth(520)
-      .setVisible(true);
-
-    const bg = this.add.rectangle(0, 0, panelWidth, panelHeight, 0x0b1822, 0.95)
-      .setStrokeStyle(2, 0x94d5f3, 0.92);
-    panel.add(bg);
-
-    this.growthDebugHitTargets = [];
-    this.growthDebugInputBlocker?.destroy?.();
-    this.growthDebugInputBlocker = this.add.zone(panelX, panelY, panelWidth, panelHeight)
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(10020)
-      .setVisible(true)
-      .setInteractive();
-    this.growthDebugInputBlocker.on('pointerdown', (pointer, localX, localY, event) => {
-      event?.stopPropagation?.();
-    });
-
-    const title = this.add.text(0, -177, '成长 / 月守 DEBUG  ·  Shift+T', {
-      fontSize: '17px',
-      fontStyle: 'bold',
-      color: '#c8f0ff',
-      stroke: '#123244',
-      strokeThickness: 3
-    }).setOrigin(0.5);
-    panel.add(title);
-
-    const section = (text, y) => {
-      const label = this.add.text(-146, y, text, {
-        fontSize: '12px',
-        fontStyle: 'bold',
-        color: '#94d5f3'
-      }).setOrigin(0, 0.5);
-      panel.add(label);
-      return label;
-    };
-
-    const button = (x, y, width, label, handler) => {
-      const box = this.add.rectangle(x, y, width, 27, 0x17374a, 0.98)
-        .setStrokeStyle(1, 0x94d5f3, 0.78);
-      const text = this.add.text(x, y, label, {
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: '#effbff',
-        align: 'center'
-      }).setOrigin(0.5);
-
-      const hit = this.add.zone(panelX + x, panelY + y, width, 29)
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(10021)
-        .setVisible(true)
-        .setInteractive({ useHandCursor: true });
-      hit.on('pointerover', () => box.setFillStyle(0x285b74, 1));
-      hit.on('pointerout', () => box.setFillStyle(0x17374a, 0.98));
-      hit.on('pointerdown', (pointer, localX, localY, event) => {
-        event?.stopPropagation?.();
-        handler?.();
-      });
-      this.growthDebugHitTargets.push(hit);
-      panel.add([box, text]);
-      return { box, text, hit, setLabel: (next) => text.setText(next) };
-    };
-
-    section('普通攻击月牙成长', -148);
-    button(-108, -122, 66, 'Lv.1', () => this.debugSetPlayerLevel(1));
-    button(-36, -122, 66, 'Lv.20', () => this.debugSetPlayerLevel(20));
-    button(36, -122, 66, 'Lv.40', () => this.debugSetPlayerLevel(40));
-    button(108, -122, 66, 'Lv.+1', () => this.debugSetPlayerLevel((Number(this.level) || 1) + 1));
-
-    section('月之守卫', -92);
-    this.growthDebugGuardianButton = button(-78, -66, 144, '月之守卫 OFF', () => this.debugToggleMoonGuardian());
-    button(78, -66, 144, '刷鸭子测试', () => this.debugSpawnGrowthTestEnemy('duck'));
-    button(-78, -34, 144, '刷双子猪', () => this.debugSpawnGrowthTestEnemy('twinPig'));
-    button(78, -34, 144, '刷瘟疫猫', () => this.debugSpawnGrowthTestEnemy('plagueCat'));
-
-    section('难度 / 月守伤害倍率', -4);
-    button(-104, 22, 92, '容易 ×1.15', () => this.debugSetDifficulty('easy'));
-    button(0, 22, 92, '简单 ×1.00', () => this.debugSetDifficulty('normal'));
-    button(104, 22, 92, '困难 ×0.90', () => this.debugSetDifficulty('hard'));
-
-    section('Boss / 正式解锁流程', 52);
-    button(-104, 78, 92, '丹麦鸭', () => this.debugSpawnGrowthTestEnemy('duckQueen'));
-    button(0, 78, 92, '土豆指挥官', () => this.debugSpawnGrowthTestEnemy('potatoCommander'));
-    button(104, 78, 92, '丹麦鸭→月守', () => this.debugPreviewDuckQueenGuardianUnlock());
-
-    section('实时状态', 108);
-    const info = this.add.text(-146, 123, '', {
-      fontFamily: 'monospace',
-      fontSize: '10px',
-      color: '#eaf9ff',
-      lineSpacing: 2
-    }).setOrigin(0, 0);
-    panel.add(info);
-
-    const footer = this.add.text(0, 174, 'B/O/Y/P 仍保留原快捷键  ·  Shift+G 打开 Boss 控制台', {
-      fontSize: '9px',
-      color: '#8fb5c6'
-    }).setOrigin(0.5);
-    panel.add(footer);
-
-    panel.setVisible(false);
-    this.growthDebugPanel = panel;
-    this.growthDebugInfoText = info;
-    this.updateGrowthDebugPanel(this.time.now);
-    return panel;
-  }
-
-  toggleGrowthDebugPanel(forceVisible = null) {
-    const panel = this.growthDebugPanel ?? this.createGrowthDebugPanel();
-    const visible = forceVisible == null ? !panel.visible : Boolean(forceVisible);
-    panel.setVisible(visible);
-    this.growthDebugInputBlocker?.setVisible(visible);
-    (this.growthDebugHitTargets ?? []).forEach((hit) => hit?.setVisible(visible));
-    if (visible) this.updateGrowthDebugPanel(this.time.now);
-    return visible;
-  }
-
-  debugSetPlayerLevel(targetLevel = 1) {
-    if (!this.player?.active || this.finished || this.endingSequenceActive) return false;
-
-    const previousLevel = Math.max(1, Number(this.level) || 1);
-    const nextLevel = Phaser.Math.Clamp(Math.trunc(Number(targetLevel) || 1), 1, 99);
-    const hpRatioBeforeLevelChange = this.player.maxHp > 0
-      ? Phaser.Math.Clamp(this.player.hp / this.player.maxHp, 0, 1)
-      : 1;
-    const levelDelta = nextLevel - previousLevel;
-
-    this.level = nextLevel;
-    this.player.maxHp = Math.max(1, this.player.maxHp + levelDelta * PLAYER.LEVEL_MAX_HP_GAIN);
-    this.player.hp = Math.max(1, Math.min(
-      this.player.maxHp,
-      Math.round(this.player.maxHp * hpRatioBeforeLevelChange)
-    ));
-    this.xp = 0;
-    this.xpNeeded = this.getXpNeeded();
-
-    this.updatePlayerOutlineVisual();
-    this.updatePlayerGrowthAura(this.time.now, { allowSpawn: false });
-    this.playPlayerLevelUpAuraPulse(Math.max(1, Math.min(3, Math.abs(nextLevel - previousLevel))));
-
-    if (previousLevel < 20 && nextLevel >= 20) {
-      this.playAttackCrescentMilestonePreview(2);
-      this.showScreenNotice('「DEBUG：月牙强化 · 双月」', '#94d5f3', 1500);
-    }
-    if (previousLevel < 40 && nextLevel >= 40) {
-      this.time.delayedCall(previousLevel < 20 ? 260 : 0, () => {
-        if (!this.finished) this.playAttackCrescentMilestonePreview(3);
-      });
-      this.showScreenNotice('「DEBUG：月牙强化 · 三月齐发」', '#94d5f3', 1600);
-    }
-
-    this.getPlayerEvolutionMilestonesCrossed(previousLevel, nextLevel)
-      .forEach((milestone) => this.playPlayerAuraEvolutionMilestone(milestone));
-    this.updateDuckQueenDebugToggleLabels();
-    this.updateGrowthDebugPanel(this.time.now);
-    this.updateHud?.();
-    return true;
-  }
-
-  debugToggleMoonGuardian(forceEnabled = null) {
-    if (!this.player?.active || this.finished || this.endingSequenceActive) return false;
-    const enabled = forceEnabled == null ? !this.playerOrbitCrescentUnlocked : Boolean(forceEnabled);
-
-    if (enabled) {
-      if (!this.playerOrbitCrescentUnlocked) this.unlockMoonGuardian();
-    } else {
-      this.playerOrbitCrescentPendingUnlock = false;
-      this.playerOrbitCrescentUnlocked = false;
-      this.playerOrbitCrescentHitCooldowns = new WeakMap();
-      this.destroyPlayerOrbitCrescentVisuals();
-      this.showScreenNotice('「DEBUG：月之守卫已关闭」', '#94d5f3', 1300);
-    }
-
-    this.updateGrowthDebugPanel(this.time.now);
-    return true;
-  }
-
-  debugSetDifficulty(key = 'normal') {
-    if (!this.player?.active) return false;
-
-    const previous = this.difficultyProfile ?? getDifficultyProfile('normal');
-    const next = getDifficultyProfile(key);
-    const hpRatio = this.player.maxHp > 0 ? Phaser.Math.Clamp(this.player.hp / this.player.maxHp, 0, 1) : 1;
-    const oldBaseMax = Math.max(1, Math.round(PLAYER.MAX_HP * (Number(previous.playerMaxHpMultiplier) || 1)));
-    const permanentBonusHp = Math.max(0, this.player.maxHp - oldBaseMax);
-
-    this.difficultyKey = next.key;
-    this.difficultyProfile = next;
-    this.registry.set('selectedDifficulty', next.key);
-
-    const newBaseMax = Math.max(1, Math.round(PLAYER.MAX_HP * (Number(next.playerMaxHpMultiplier) || 1)));
-    this.player.maxHp = newBaseMax + permanentBonusHp;
-    this.player.hp = Math.max(1, Math.round(this.player.maxHp * hpRatio));
-    this.player.difficultyIncomingDamageMultiplier = Number(next.incomingDamageMultiplier) || 1;
-    this.player.contactInvulnMs = Math.max(
-      80,
-      Math.round(PLAYER.CONTACT_INVULN_MS * (Number(next.contactInvulnMultiplier) || 1))
-    );
-    this.xpNeeded = this.getXpNeeded();
-
-    this.showScreenNotice(
-      `「DEBUG 难度：${next.label} · 月守 ×${Number(next.guardianDamageMultiplier || 1).toFixed(2)}」`,
-      '#94d5f3',
-      1600
-    );
-    this.updateGrowthDebugPanel(this.time.now);
-    this.updateHud?.();
-    return true;
-  }
-
-  debugSpawnGrowthTestEnemy(type = 'duck') {
-    if (!this.player?.active || this.finished || this.isChoosingUpgrade) return null;
-
-    this.startGameplayExperience();
-    if (this.waitingForGameStart) {
-      this.waitingForGameStart = false;
-      this.gameStartInitiated = false;
-      (this.gameStartGate ?? []).forEach((item) => item?.destroy());
-      this.gameStartGate = null;
-      this.adaptiveMusic?.start?.();
-    }
-
-    this.player.debugInvincible = true;
-    this.player.hp = this.player.maxHp;
-
-    if (type === 'potatoCommander') {
-      const commander = this.ensurePotatoCommanderForDebug();
-      this.updateGrowthDebugPanel(this.time.now);
-      return commander;
-    }
-
-    if (type === 'duckQueen') {
-      if (this.duckQueen?.active && !this.duckQueen.isDead) return this.duckQueen;
-      if (this.bossActive) {
-        this.showScreenNotice('「当前已有 Boss，请先结束当前战斗」', '#ffb0b0');
-        return null;
-      }
-      const queen = this.spawnSystem.spawnDuckQueen({ force: true, debug: true });
-      if (queen) {
-        queen.setTarget(this.player);
-        queen.stunnedUntil = -Infinity;
-        queen.body?.setEnable(true);
-        queen.setActive(true).setVisible(true);
-      }
-      this.updateGrowthDebugPanel(this.time.now);
-      return queen;
-    }
-
-    let enemy = null;
-    if (type === 'twinPig' || type === 'plagueCat') {
-      enemy = this.spawnSystem.spawnElite(type, { debugNear: true });
-    } else {
-      enemy = this.spawnSystem.spawnByType(type === 'duck' ? 'duck' : 'potato');
-      if (enemy?.active) {
-        enemy.setPosition(
-          Phaser.Math.Clamp(this.player.x + 115, 50, GAME.WORLD_WIDTH - 50),
-          Phaser.Math.Clamp(this.player.y + 12, 50, GAME.WORLD_HEIGHT - 50)
-        );
-        enemy.setTarget?.(this.player);
-      }
-    }
-
-    if (enemy?.active) {
-      this.showScreenNotice(`「DEBUG：已生成 ${type} 测试目标」`, '#94d5f3', 1100);
-    }
-    this.updateGrowthDebugPanel(this.time.now);
-    return enemy;
-  }
-
-  updateGrowthDebugPanel(time = this.time.now) {
-    const panel = this.growthDebugPanel;
-    if (!panel?.visible || !this.growthDebugInfoText || !this.player?.active) return;
-
-    const volley = this.getAttackCrescentVolley(this.level);
-    const guardianMultiplier = this.getMoonGuardianDamageMultiplier();
-    const guardianDamage = Math.max(
-      1,
-      Math.round(this.player.attackDamage * PLAYER.MOON_GUARD_DAMAGE_MULTIPLIER * guardianMultiplier)
-    );
-    const difficultyLabel = this.difficultyProfile?.label ?? '简单';
-
-    this.growthDebugGuardianButton?.setLabel(
-      `月之守卫 ${this.playerOrbitCrescentUnlocked ? 'ON' : 'OFF'}`
-    );
-    this.growthDebugInfoText.setText([
-      `Lv.${this.level}  普攻月牙:${volley.count}枚  单枚:${Math.round(volley.damageMultiplier * 100)}%`,
-      `月守:${this.playerOrbitCrescentUnlocked ? 'ON' : 'OFF'}  单次伤害:${guardianDamage}`,
-      `难度:${difficultyLabel}  月守倍率:×${guardianMultiplier.toFixed(2)}`,
-      `HP:${Math.ceil(this.player.hp)}/${this.player.maxHp}  Debug无敌:${this.player.debugInvincible ? 'ON' : 'OFF'}`
-    ]);
-  }
-
-  createDuckQueenDebugPanel() {
-    if (this.duckQueenDebugPanel?.active) return this.duckQueenDebugPanel;
-
-    // Compatibility: historical field/method names still say duckQueenDebug.
-    // This secondary Boss / Ending console is opened with Shift+G; Shift+T is the growth / Moon Guardian panel.
-    const panelWidth = 356;
-    const panelHeight = 532;
-    const panel = this.add.container(GAME.WIDTH - panelWidth / 2 - 10, GAME.HEIGHT / 2)
-      .setScrollFactor(0)
-      .setDepth(500)
-      .setVisible(false);
-
-    const bg = this.add.rectangle(0, 0, panelWidth, panelHeight, 0x17130d, 0.94)
-      .setStrokeStyle(2, 0xf2cf72, 0.88);
-    panel.add(bg);
-
-    this.duckQueenDebugHitTargets = [];
-    this.duckQueenDebugInputBlocker?.destroy?.();
-    this.duckQueenDebugInputBlocker = this.add.zone(panel.x, panel.y, panelWidth, panelHeight)
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(10000)
-      .setVisible(false)
-      .setInteractive();
-    this.duckQueenDebugInputBlocker.on('pointerdown', (pointer, localX, localY, event) => {
-      event?.stopPropagation?.();
-    });
-
-    const title = this.add.text(0, -246, '土豆指挥官 DEBUG  ·  Shift+G', {
-      fontSize: '18px',
-      fontStyle: 'bold',
-      color: '#ffe6a6',
-      stroke: '#3b2a0e',
-      strokeThickness: 3
-    }).setOrigin(0.5);
-    panel.add(title);
-
-    const section = (text, y) => {
-      const label = this.add.text(-160, y, text, {
-        fontSize: '13px',
-        fontStyle: 'bold',
-        color: '#f2cf72'
-      }).setOrigin(0, 0.5);
-      panel.add(label);
-      return label;
-    };
-
-    const button = (x, y, width, label, handler) => {
-      const box = this.add.rectangle(x, y, width, 27, 0x493a1f, 0.98)
-        .setStrokeStyle(1, 0xf2cf72, 0.80);
-      const text = this.add.text(x, y, label, {
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: '#fff7df',
-        align: 'center'
-      }).setOrigin(0.5);
-
-      const hit = this.add.zone(panel.x + x, panel.y + y, width, 29)
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(10001)
-        .setVisible(false)
-        .setInteractive({ useHandCursor: true });
-      hit.on('pointerover', () => box.setFillStyle(0x735c2f, 1));
-      hit.on('pointerout', () => box.setFillStyle(0x493a1f, 0.98));
-      hit.on('pointerdown', (pointer, localX, localY, event) => {
-        event?.stopPropagation?.();
-        handler?.();
-      });
-      this.duckQueenDebugHitTargets.push(hit);
-
-      panel.add([box, text]);
-      return { box, text, hit, setLabel: (next) => text.setText(next) };
-    };
-
-    section('阶段（实战）', -216);
-    button(-117, -190, 70, '阶段1', () => this.debugSetPotatoCommanderPhase(0));
-    button(-39, -190, 70, '阶段2', () => this.debugSetPotatoCommanderPhase(1));
-    button(39, -190, 70, '阶段3', () => this.debugSetPotatoCommanderPhase(2));
-    button(117, -190, 70, '阶段4', () => this.debugSetPotatoCommanderPhase(3));
-
-    section('土豆指挥官技能', -157);
-    button(-82, -131, 154, '十字普攻', () => this.debugTriggerPotatoCommanderSkill('cross'));
-    button(82, -131, 154, '抱团', () => this.debugTriggerPotatoCommanderSkill('group'));
-    button(-82, -99, 154, '下场', () => this.debugTriggerPotatoCommanderSkill('smash'));
-    button(82, -99, 154, '点赞', () => this.debugTriggerPotatoCommanderSkill('like'));
-    button(-82, -67, 154, '团魂', () => this.debugTriggerPotatoCommanderSkill('holy'));
-    button(82, -67, 154, '独美', () => this.debugTriggerPotatoCommanderSkill('cleanse'));
-    button(-82, -35, 154, '圣恩有价', () => this.debugTriggerPotatoCommanderSkill('absorb'));
-    button(82, -35, 154, '下黑水演绎（直发）', () => this.debugPreviewCommanderBlackwater());
-
-    section('测试辅助', -3);
-    this.duckQueenDebugInvincibleButton = button(-82, 23, 154, '主角无敌 OFF', () => {
-      this.player.debugInvincible = !this.player.debugInvincible;
-      if (this.player.debugInvincible) this.player.hp = this.player.maxHp;
-      this.updateDuckQueenDebugToggleLabels();
-    });
-    this.duckQueenDebugCooldownButton = button(82, 23, 154, '忽略CD OFF', () => {
-      this.duckQueenDebugIgnoreCooldown = !this.duckQueenDebugIgnoreCooldown;
-      this.updateDuckQueenDebugToggleLabels();
-    });
-    button(-82, 55, 154, '重置位置', () => this.debugResetPotatoCommanderPositions());
-    button(82, 55, 154, '补充测试土豆', () => this.debugPreparePotatoCommanderMinions());
-    this.playerAuraDebugLevelButton = button(-82, 87, 154, 'Aura +1 · Lv.1', () => this.debugAdvancePlayerAuraLevel());
-    button(82, 87, 154, '清空Boss技能锁', () => this.debugClearPotatoCommanderSkillLocks());
-    button(-82, 119, 154, '大升Key测试', () => this.debugPreviewKeyUp());
-    button(82, 119, 154, '双向奔赴测试', () => this.debugPreviewMutualSupport());
-
-    section('Ending / 片尾测试', 146);
-    button(-112, 174, 102, '丹麦鸭 Ending', () => this.debugPreviewDuckQueenVictoryEnding());
-    button(0, 174, 102, '土豆指挥官 Ending', () => this.debugPreviewPotatoCommanderEnding());
-    button(112, 174, 102, '鸣谢全流程', () => this.debugPreviewPotatoCommanderCredits());
-
-    section('实时状态', 203);
-    const info = this.add.text(-160, 216, '', {
-      fontFamily: 'monospace',
-      fontSize: '8px',
-      color: '#fff4d6',
-      lineSpacing: 0
-    }).setOrigin(0, 0);
-    panel.add(info);
-
-    this.duckQueenDebugPanel = panel;
-    this.duckQueenDebugInfoText = info;
-    this.updateDuckQueenDebugToggleLabels();
-    return panel;
-  }
-
-  toggleDuckQueenDebugPanel(forceVisible = null) {
-    const panel = this.duckQueenDebugPanel ?? this.createDuckQueenDebugPanel();
-    const visible = forceVisible == null ? !panel.visible : Boolean(forceVisible);
-    panel.setVisible(visible);
-    this.duckQueenDebugInputBlocker?.setVisible(visible);
-    (this.duckQueenDebugHitTargets ?? []).forEach((hit) => hit?.setVisible(visible));
-    if (visible) this.updateDuckQueenDebugPanel(this.time.now);
-    return visible;
-  }
-
-  debugPreviewKeyUp() {
-    if (!this.player?.active || this.finished || this.endingSequenceActive) return false;
-
-    // DEBUG 预览直接补满愤怒值，再走正式 tryKeyUp()；
-    // 因此人物专用帧、蓄力、顶点闪光、AOE、伤害、击退和清弹幕都与正式技能完全一致。
-    this.player.injustice = PLAYER.KEY_UP_MAX;
-    const ok = this.tryKeyUp();
-    if (!ok) this.showScreenNotice?.('「大升Key当前无法测试」', '#94d5f3');
-    return ok;
-  }
-
-  debugPreviewMutualSupport() {
-    if (!this.player?.active || this.finished || this.endingSequenceActive) return false;
-    this.player.support = PLAYER.SUPPORT_MAX;
-    const ok = this.tryMutualSupport();
-    if (!ok) this.showScreenNotice?.('「双向奔赴当前无法测试」', '#9ce8ff');
-    return ok;
-  }
-
-  debugAdvancePlayerAuraLevel(steps = 1) {
-    if (!this.player?.active || this.finished || this.endingSequenceActive) return false;
-
-    const amount = Phaser.Math.Clamp(Math.trunc(Number(steps) || 1), 1, 10);
-    const previousLevel = Math.max(1, Number(this.level) || 1);
-    this.level = Math.max(1, previousLevel + amount);
-
-    // Aura inspection is deliberately visual-only: do not enqueue upgrade cards or alter build stats.
-    // Reset XP progress so the HUD stays internally consistent with the inspected level.
-    this.xp = 0;
-    this.xpNeeded = this.getXpNeeded();
-    this.updatePlayerOutlineVisual();
-    this.updatePlayerGrowthAura(this.time.now, { allowSpawn: false });
-    this.playPlayerLevelUpAuraPulse(amount);
-    this.getPlayerEvolutionMilestonesCrossed(previousLevel, this.level)
-      .forEach((milestone) => this.playPlayerAuraEvolutionMilestone(milestone));
-    this.updateDuckQueenDebugToggleLabels();
-    this.updateHud?.();
-    this.showScreenNotice?.(`「Aura 测试：主角 Lv.${this.level}」`, '#94d5f3');
-    return true;
-  }
-
-  debugPreviewDuckQueenGuardianUnlock() {
-    if (!this.player?.active || this.finished || this.endingSequenceActive) return false;
-
-    // 直测“击败丹麦鸭 → Ending → 战斗恢复 → 月之守卫解锁”的完整奖励时序。
-    // 若之前已手动打开月守，先清掉它，确保 Ending 结束后能再次看到真实解锁瞬间。
-    this.playerOrbitCrescentUnlocked = false;
-    this.playerOrbitCrescentPendingUnlock = true;
-    this.playerOrbitCrescentHitCooldowns = new WeakMap();
-    this.destroyPlayerOrbitCrescentVisuals();
-    this.player.hp = this.player.maxHp;
-    this.updateGrowthDebugPanel(this.time.now);
-    return this.debugPreviewDuckQueenVictoryEnding();
-  }
-
-  debugPreviewDuckQueenVictoryEnding() {
-    if (this.duckQueenVictoryEndingActive || this.endingSequenceActive) {
-      this.showScreenNotice?.('「Ending 正在播放」', '#ffd0e6');
-      return false;
-    }
-    if (!this.player?.active) return false;
-
-    // 预览不要求真的击杀女王鸭，也不修改击杀统计/掉落。
-    // 只借用当前女王鸭位置；若场上没有女王鸭，则在玩家前方生成结算镜头锚点。
-    const queen = this.duckQueen?.active && !this.duckQueen.isDead ? this.duckQueen : null;
-    const x = queen?.x ?? (this.player.x + 120);
-    const y = queen?.y ?? this.player.y;
-
-    // 先收起 DEBUG，避免面板盖住胜利 cut-in。
-    this.toggleDuckQueenDebugPanel(false);
-    this.debugClearDuckQueenStates?.({ quiet: true });
-
-    // DEBUG 不跳过任何段落：点击 Ending 后走与正式丹麦鸭完全一致的 Camera 渐黑 / 黑场换景 / 渐亮。
-    const ok = this.startDuckQueenVictoryEnding(x, y);
-    if (!ok) this.showScreenNotice?.('「Ending 当前无法播放」', '#ffb6d7');
-    return ok;
-  }
-
-
-  debugPreviewPotatoCommanderEnding() {
-    if (this.potatoCommanderEndingActive || this.duckQueenVictoryEndingActive || this.endingSequenceActive) {
-      this.showScreenNotice?.('「Ending 正在播放」', '#f2d58a');
-      return false;
-    }
-    if (!this.player?.active) return false;
-
-    // Ending DEBUG 是终局预览：若丹麦鸭仍在场，先干净移除，避免 Boss 锁阻止土豆指挥官测试演员生成。
-    this.toggleDuckQueenDebugPanel(false);
-    this.debugClearDuckQueenStates?.({ quiet: true });
-    if (this.duckQueen?.active) {
-      this.duckQueen.destroy();
-      this.duckQueen = null;
-      this.bossActive = false;
-      this.clearBossHud?.();
-    }
-
-    const commander = this.ensurePotatoCommanderForDebug();
-    if (!commander?.active) {
-      this.showScreenNotice?.('「土豆指挥官 Ending 当前无法播放」', '#f2d58a');
-      return false;
-    }
-
-    const ok = this.startPotatoCommanderEnding(commander);
-    if (!ok) this.showScreenNotice?.('「土豆指挥官 Ending 当前无法播放」', '#f2d58a');
-    return Boolean(ok);
-  }
-
-  debugPreviewPotatoCommanderCredits() {
-    if (this.potatoCommanderEndingActive || this.duckQueenVictoryEndingActive || this.endingSequenceActive) {
-      this.showScreenNotice?.('「Ending 正在播放」', '#f2d58a');
-      return false;
-    }
-    if (!this.player?.active) return false;
-
-    // 一键鸣谢从正式“青蛙 + 小跳蛙”段开始，一直跑到土豆炖鸭最后画面并自动返回标题。
-    // 不维护第二套预览动画，直接复用正式 showPotatoCommanderFrogCredits() 状态机。
-    this.toggleDuckQueenDebugPanel(false);
-    this.debugClearDuckQueenStates?.({ quiet: true });
-    this.endingSequenceActive = true;
-    this.potatoCommanderEndingActive = true;
-    this.potatoCommanderEndingEvents = [];
-    this.potatoCommanderEndingFx = [];
-    this.potatoCommanderEndingAudio = { sendoff: null, victory: null, frog: null };
-    this.victoryElapsedSeconds = this.getGameplayElapsedSeconds();
-
-    this.adaptiveMusic?.pause?.();
-    this.bossActive = false;
-    this.clearBossHud?.();
-    this.captureDuckQueenVictoryEndingHud();
-    this.captureDuckQueenVictoryEndingPlayerVisual();
-    this.captureDuckQueenVictoryEndingCombatLayer();
-    this.hideDuckQueenVictoryEndingBeatIndicators();
-    this.physics.world.pause();
-    this.player?.setVelocity?.(0, 0);
-    this.cameras.main.stopFollow();
-
-    // 正式土豆 Ending 进入鸣谢时背后是 Ending 舞台；DEBUG 直达也补同样的深色舞台，避免看到冻结战场。
-    this.trackPotatoCommanderEndingFx(
-      this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x111820, 1)
-        .setOrigin(0)
-        .setScrollFactor(0)
-        .setDepth(69990)
-    );
-
-    this.showPotatoCommanderFrogCredits();
-    return true;
-  }
-
-  updateDuckQueenDebugToggleLabels() {
-    this.duckQueenDebugInvincibleButton?.setLabel(
-      `主角无敌 ${this.player?.debugInvincible ? 'ON' : 'OFF'}`
-    );
-    this.duckQueenDebugCooldownButton?.setLabel(
-      `忽略CD ${this.duckQueenDebugIgnoreCooldown ? 'ON' : 'OFF'}`
-    );
-    this.playerAuraDebugLevelButton?.setLabel(`Aura +1 · Lv.${Math.max(1, Number(this.level) || 1)}`);
-  }
-
-  ensurePotatoCommanderForDebug() {
-    if (this.potatoCommander?.active && !this.potatoCommander.isDead) {
-      return this.potatoCommander;
-    }
-
-    if (this.bossActive) {
-      this.showScreenNotice('「当前已有其他Boss，无法召唤土豆指挥官」', '#ffb0b0');
-      return null;
-    }
-
-    this.startGameplayExperience();
-    if (this.waitingForGameStart) {
-      this.waitingForGameStart = false;
-      this.gameStartInitiated = false;
-      (this.gameStartGate ?? []).forEach((item) => item?.destroy());
-      this.gameStartGate = null;
-      this.adaptiveMusic?.start?.();
-    }
-
-    const commander = this.spawnSystem.spawnPotatoCommander({
-      force: true,
-      debug: true
-    });
-    if (!commander) {
-      this.showScreenNotice('「土豆指挥官测试召唤失败」', '#ff9b9b');
-      return null;
-    }
-
-    commander.setTarget?.(this.player);
-    commander.stunnedUntil = -Infinity;
-    commander.body?.setEnable?.(true);
-    commander.setActive(true).setVisible(true);
-    return commander;
-  }
-
-  debugSetPotatoCommanderPhase(index = 0) {
-    const commander = this.ensurePotatoCommanderForDebug();
-    if (!commander) return false;
-
-    const phaseIndex = Phaser.Math.Clamp(Math.trunc(index), 0, 3);
-    const labels = ['童年回忆', '事必躬亲', '圣光普照', '神恩归一'];
-
-    this.importantText?.clearSource?.(commander);
-    commander.debugJumpToGameplayPhase?.(phaseIndex);
-    this.updateBossHud?.();
-    this.showScreenNotice(
-      `「测试切换：阶段${phaseIndex + 1} · ${labels[phaseIndex]}」`,
-      '#f2d58a'
-    );
-    return true;
-  }
-
-  debugPreparePotatoCommanderMinions(commander = null, wanted = 6, { quiet = false } = {}) {
-    const boss = commander ?? this.ensurePotatoCommanderForDebug();
-    if (!boss?.active || boss.isDead) return 0;
-
-    const targetCount = Math.max(1, Math.trunc(wanted));
-    const existing = this.getCommanderGraceCandidates?.(boss, 999)?.length ?? 0;
-    const room = Math.max(0, SPAWN.MAX_ALIVE - this.enemies.countActive(true));
-    const addCount = Math.min(Math.max(0, targetCount - existing), room);
-
-    for (let i = 0; i < addCount; i += 1) {
-      const angle = (Math.PI * 2 * i) / Math.max(1, addCount);
-      const radiusX = 115 + (i % 2) * 24;
-      const radiusY = 72 + (i % 3) * 8;
-      const potato = this.spawnSystem.spawnPotatoAt(
-        boss.x + Math.cos(angle) * radiusX,
-        boss.y + Math.sin(angle) * radiusY
-      );
-      potato?.setTarget?.(this.player);
-      potato?.setVelocity?.(0, 0);
-    }
-
-    if (boss.phaseIndex >= 3) {
-      this.maintainCommanderFollowerRing?.(boss);
-    }
-
-    const total = this.getCommanderGraceCandidates?.(boss, 999)?.length ?? existing + addCount;
-    if (!quiet) {
-      this.showScreenNotice(`「测试土豆已补充：附近 ${total} 只」`, '#f2d58a');
-    }
-    return total;
-  }
-
-  debugClearPotatoCommanderSkillLocks({ quiet = false } = {}) {
-    const commander = this.potatoCommander;
-    if (!commander?.active || commander.isDead) {
-      if (!quiet) this.showScreenNotice('「土豆指挥官未召唤」', '#f2d58a');
-      return false;
-    }
-
-    const now = this.time.now;
-    commander.debugInspectionMode = false;
-    commander.debugForcedPhaseIndex = null;
-    commander.actionLockedUntil = -Infinity;
-    commander.nextActionAt = now + 500;
-    commander.nextBasicAttackAt = now + 260;
-    commander.cancelBasicAttackBurst?.();
-    commander.lastSpecialAction = null;
-    Object.keys(commander.specialSkillReadyAt ?? {}).forEach((key) => {
-      commander.specialSkillReadyAt[key] = -Infinity;
-    });
-
-    // Only release simple scene-level locks. Long-running scheduled VFX from a skill
-    // are allowed to finish naturally instead of being force-destroyed mid-frame.
-    this.commanderLikeAttackActive = false;
-    this.commanderLikePlayerHitUntil = -Infinity;
-
-    if (!quiet) this.showScreenNotice('「Boss 技能CD / 行动锁已清空」', '#a9f7c5');
-    return true;
-  }
-
-  debugResetPotatoCommanderPositions() {
-    const commander = this.ensurePotatoCommanderForDebug();
-    if (!commander || !this.player?.active) return false;
-
-    const centerX = Phaser.Math.Clamp(GAME.WORLD_WIDTH / 2, 220, GAME.WORLD_WIDTH - 220);
-    const centerY = Phaser.Math.Clamp(GAME.WORLD_HEIGHT / 2, 180, GAME.WORLD_HEIGHT - 180);
-
-    this.player.setPosition(centerX - 105, centerY);
-    this.player.setVelocity(0, 0);
-    commander.setPosition(centerX + 115, centerY);
-    commander.setVelocity(0, 0);
-    commander.setTarget?.(this.player);
-    this.cameras.main.centerOn(this.player.x, this.player.y);
-
-    this.showScreenNotice('「土豆指挥官测试位置已重置」', '#f2d58a');
-    return true;
-  }
-
-  debugTriggerPotatoCommanderSkill(skill) {
-    const commander = this.ensurePotatoCommanderForDebug();
-    if (!commander) return false;
-
-    const config = ENEMIES.potatoCommander;
-    const now = this.time.now;
-    const specs = {
-      cross: { minPhase: 0, label: '十字普攻' },
-      group: { minPhase: 0, label: '抱团', cooldown: 'group' },
-      smash: { minPhase: 1, label: '下场', cooldown: 'smash' },
-      like: { exactPhase: 2, label: '点赞', cooldown: 'like' },
-      holy: { minPhase: 2, label: '团魂', cooldown: 'holy', needsPotatoes: 6 },
-      cleanse: { minPhase: 2, label: '独美', cooldown: 'cleanse', needsPotatoes: 6 },
-      absorb: { minPhase: 3, label: '圣恩有价', cooldown: 'absorb', needsPotatoes: 6 },
-      judgment: { minPhase: 3, label: '下黑水' }
-    };
-    const spec = specs[skill];
-    if (!spec) return false;
-
-    const activeLongSkill = (
-      this.commanderSkySmashActive
-      || this.commanderJudgmentActive
-      || this.commanderLikeAttackActive
-      || this.commanderBlackwaterPreviewActive
-    );
-    if (activeLongSkill) {
-      this.showScreenNotice('「当前技能演出还没结束」', '#ffcc8a');
-      return false;
-    }
-
-    let targetPhase = commander.phaseIndex ?? 0;
-    if (Number.isInteger(spec.exactPhase)) {
-      targetPhase = spec.exactPhase;
-    } else {
-      targetPhase = Math.max(targetPhase, spec.minPhase ?? 0);
-    }
-
-    if (
-      commander.debugInspectionMode
-      || commander.phaseIndex !== targetPhase
-    ) {
-      this.importantText?.clearSource?.(commander);
-      commander.debugJumpToGameplayPhase?.(targetPhase);
-    }
-
-    if (
-      spec.cooldown
-      && !this.duckQueenDebugIgnoreCooldown
-      && commander.isSpecialSkillReady?.(spec.cooldown, now) === false
-    ) {
-      this.showScreenNotice(`「${spec.label}还在冷却」`, '#ffcc8a');
-      return false;
-    }
-
-    if (this.duckQueenDebugIgnoreCooldown && spec.cooldown) {
-      commander.specialSkillReadyAt[spec.cooldown] = -Infinity;
-    }
-
-    if (spec.needsPotatoes) {
-      this.debugPreparePotatoCommanderMinions(
-        commander,
-        spec.needsPotatoes,
-        { quiet: true }
-      );
-    }
-
-    this.importantText?.clearSource?.(commander);
-    commander.setVelocity(0, 0);
-    commander.cancelBasicAttackBurst?.();
-
-    let ok = false;
-    let lockMs = 0;
-
-    if (skill === 'cross') {
-      ok = Boolean(this.firePotatoCommanderCross?.(commander));
-      commander.nextBasicAttackAt = now + commander.getBasicCrossCooldownMs?.();
-    } else if (skill === 'group') {
-      this.commanderEveryoneTogether?.(commander);
-      lockMs = config.groupCastArtMs ?? 1650;
-      ok = true;
-    } else if (skill === 'smash') {
-      this.startCommanderSkySmash?.(commander);
-      lockMs = (config.skySmashWarningMs ?? 760) + 600;
-      ok = this.commanderSkySmashActive === true;
-    } else if (skill === 'like') {
-      ok = Boolean(this.startCommanderLikeAttack?.(commander));
-      lockMs = config.likeCastArtMs ?? 1320;
-    } else if (skill === 'holy') {
-      this.startCommanderWish?.(commander);
-      lockMs = (config.holyCastMs ?? 1900) + 350;
-      ok = true;
-    } else if (skill === 'cleanse') {
-      ok = Boolean(this.startCommanderCleanse?.(commander));
-      lockMs = (config.cleanseCastMs ?? 1320) + 180;
-    } else if (skill === 'absorb') {
-      // Keep manual 圣恩有价 tests isolated from an already-armed 圣裁 cycle.
-      if ((commander.judgmentGraceCount ?? 0) >= (config.judgmentGraceCastsRequired ?? 3)) {
-        commander.resetJudgmentCycle?.();
-      }
-      ok = Boolean(this.commanderStopSpending?.(commander));
-      lockMs = (config.absorbDurationMs ?? 2400) + 500;
-    } else if (skill === 'judgment') {
-      const required = config.judgmentGraceCastsRequired ?? 3;
-      commander.judgmentGraceCount = required;
-      commander.judgmentPending = true;
-      commander.judgmentFaithCharge = config.absorbJudgmentChargeCap ?? 18;
-      this.updateCommanderJudgmentHud?.(commander, true);
-      ok = Boolean(this.startCommanderJudgment?.(commander));
-    }
-
-    if (!ok) {
-      this.showScreenNotice(
-        `「${spec.label}当前无法发动：检查场上状态」`,
-        '#ffb0b0'
-      );
-      return false;
-    }
-
-    if (spec.cooldown) {
-      if (this.duckQueenDebugIgnoreCooldown) {
-        commander.specialSkillReadyAt[spec.cooldown] = -Infinity;
-      } else {
-        commander.markSpecialSkillUsed?.(spec.cooldown, now);
-      }
-    }
-
-    if (lockMs > 0) {
-      commander.actionLockedUntil = Math.max(
-        commander.actionLockedUntil ?? -Infinity,
-        now + lockMs
-      );
-      commander.nextActionAt = Math.max(
-        commander.nextActionAt ?? -Infinity,
-        now + lockMs + 650
-      );
-    }
-
-    return true;
-  }
-
   trackCommanderBlackwaterFx(obj) {
     if (!obj) return obj;
     this.commanderBlackwaterFx ??= [];
@@ -12875,7 +11811,6 @@ export default class GameScene extends Phaser.Scene {
     player.setAlpha(1);
     player.clearTint?.();
     player.setVelocity(0, 0);
-    // 下黑水仍处于 active，Y-sort 会继续把 Player 保持在安全前层；真正恢复战斗在退白完成后。
     player.setDepth(19960);
     if (player.body) {
       const sx = Math.max(0.001, Math.abs(player.scaleX));
@@ -12889,8 +11824,6 @@ export default class GameScene extends Phaser.Scene {
     if (!commander?.active || commander.isDead) return false;
     commander.resetJudgmentCycle?.();
 
-    // 《下黑水》完整结束后，三个计数十字必须明确回到“未点亮”状态，
-    // 而不是只把内部 count 清零后等待下一次 HUD 刷新。
     (this.judgmentHudCrosses ?? []).forEach((cross) => {
       if (!cross?.active) return;
       this.tweens.killTweensOf(cross);
@@ -12908,13 +11841,12 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
-  clearCommanderBlackwaterPreview({ reopenDebug = false, resetJudgmentCycle = false } = {}) {
+  clearCommanderBlackwaterPreview({ resetJudgmentCycle = false } = {}) {
     (this.commanderBlackwaterEvents ?? []).forEach((event) => event?.remove?.(false));
     this.commanderBlackwaterEvents = [];
     this.stopCommanderBlackwaterAudio();
     this.commanderBlackwaterLastImpactSfxAt = -Infinity;
 
-    // 终爆白屏结束或演出被打断时，所有“下黑水”坑都必须立刻清场。
     this.clearCommanderBlackwaterCraters({ immediate: true });
 
     (this.commanderBlackwaterFx ?? []).forEach((obj) => {
@@ -12983,15 +11915,9 @@ export default class GameScene extends Phaser.Scene {
     this.updateCommanderJudgmentHud?.(commander, false, { createIfMissing: false });
     this.updateHud?.();
 
-    if (reopenDebug && RELEASE.DEVELOPER_TOOLS) {
-      this.time.delayedCall(160, () => this.toggleDuckQueenDebugPanel(true));
-    }
   }
 
   ensureCommanderBlackwaterCloseupPresentation() {
-    // v1.0.13：这里必须和「大发卖」保持同一种固定屏幕 presentation。
-    // 关键点不是尺寸参数，而是 bitmap mask 的 source 必须持久保存；
-    // 旧版每次换帧临时 new 一个 source，会导致大图在部分运行环境里漏出左侧遮罩。
     const maskKey = 'commanderBlackwaterCloseupFeatherMask';
     const shadeKey = 'commanderBlackwaterCloseupShadeGradient';
     const maskW = ENEMIES.potatoCommander.blackwaterCloseupFeatherWidth ?? 540;
@@ -13052,8 +11978,6 @@ export default class GameScene extends Phaser.Scene {
 
   setCommanderBlackwaterCloseupFrame(textureKey, intensity = 0.45, flipX = false) {
     if (!this.textures.exists(textureKey)) return null;
-    // v1.0.20：完全按《大发卖》的镜头语言处理：不裁图，用完整 PNG 的缩放 + 位移 + 羽化。
-    // 关键目标是左边缘不截断人物，同时恐慌升级时只做轻微推近。
     const clamped = Phaser.Math.Clamp(intensity, 0, 1);
     const mask = this.ensureCommanderBlackwaterCloseupPresentation();
     const maskW = ENEMIES.potatoCommander.blackwaterCloseupFeatherWidth ?? 540;
@@ -13073,8 +11997,6 @@ export default class GameScene extends Phaser.Scene {
       playerBlackwaterDownArt:          { dx: 4,   dy: 8,  h: -12 },
       playerBlackwaterEndingArt:        { dx: 6,   dy: 10, h: -16 }
     }[textureKey] ?? { dx: 0, dy: 0, h: 0 };
-    // v1.0.26：按 PNG 真正有像素的左右边界贴左，而不是按整张 1254×1254 透明画布贴左。
-    // 这样可以继续向左挪，但肉眼可见的人物轮廓仍至少保留约 1px，不会被屏幕边缘截掉。
     const visibleBounds = {
       playerArt:                        { left: 0.133, right: 0.867 },
       playerBlackwaterAlertArt:         { left: 0.023, right: 0.961 },
@@ -13164,10 +12086,6 @@ export default class GameScene extends Phaser.Scene {
     const actor = this.player;
     if (!actor?.active || !this.textures.exists(textureKey)) return null;
 
-    // v1.0.15：场中动作帧必须继承「下黑水触发前」主角真实的游戏显示尺寸。
-    // 不能把 Player 构造时的 60×60 当成正常战斗尺寸；正常战斗中母版可能已经由
-    // 既有视觉恢复逻辑回到另一组 displayWidth/displayHeight。这里始终使用触发前快照，
-    // 因而高分辨率 1254×1254 动作 PNG 只换纹理，不会改变人物在战场中的视觉大小。
     const restore = this.commanderBlackwaterPlayerRestore;
     const targetW = Math.max(1, Math.abs(Number(restore?.displayWidth) || Number(actor.displayWidth) || 60));
     const targetH = Math.max(1, Math.abs(Number(restore?.displayHeight) || Number(actor.displayHeight) || 60));
@@ -13179,8 +12097,6 @@ export default class GameScene extends Phaser.Scene {
     );
     const effectiveFlipX = typeof flipX === 'boolean' ? flipX : Boolean(actor.flipX);
     actor.setFlipX(effectiveFlipX);
-    // setDisplaySize 会改变高分辨率帧的 scale；同步反算 body source-size，
-    // 保证屏幕上的碰撞体仍保持原本约 35.625×44.0625px，而不是随 PNG 分辨率变化。
     if (actor.body) {
       const sx = Math.max(0.001, Math.abs(actor.scaleX));
       const sy = Math.max(0.001, Math.abs(actor.scaleY));
@@ -13213,7 +12129,7 @@ export default class GameScene extends Phaser.Scene {
     scaleJitter = Phaser.Math.FloatBetween(0.94, 1.08),
     screenSpace = false,
     persistentMs = 30000,
-    depth = 19890, // legacy regression token: depth = 19920
+    depth = 19890,
     revealFrom = 0.84,
     revealTo = 1.04,
     revealMs = 95
@@ -13239,7 +12155,6 @@ export default class GameScene extends Phaser.Scene {
     const targetScaleX = crater.scaleX;
     const targetScaleY = crater.scaleY;
     crater.setScale(targetScaleX * revealFrom, targetScaleY * revealFrom);
-    // v1.0.17：坑洞主体必须永远在主角下层；真正压到主角上方的只能是瞬时爆裂粒子。
     if (this.commanderBlackwaterPlayerActor?.active) {
       this.commanderBlackwaterPlayerActor.setDepth(Math.max(19960, (this.commanderBlackwaterPlayerActor.depth ?? 0), depth + 70));
     }
@@ -13522,7 +12437,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  playCommanderBlackwaterFinalImpact(commander, { debugPreview = false } = {}) {
+  playCommanderBlackwaterFinalImpact(commander) {
     if (!this.commanderBlackwaterPreviewActive || !this.player?.active) return false;
     const player = this.player;
     const x = player.x;
@@ -13530,19 +12445,15 @@ export default class GameScene extends Phaser.Scene {
     const y = player.y + Math.max(8, playerH * 0.10);
     const config = ENEMIES.potatoCommander;
 
-    // v1.0.23：7→8→9 已在疯狂十字雨里完成；进入这里时场中和左侧 cut-in 都应已经是 09 Ending。
-    // 最终一击只负责“爆炸 → 爆盲白屏 → 恢复”，不再把人物倒回第 8 帧。
     const endingRevealDelayMs = config.blackwaterFinalEndingRevealDelayMsV123 ?? 0;
     const endingHoldMs = config.blackwaterFinalEndingHoldMsV123 ?? 0;
     const finaleFx = [];
 
-    // 最终爆炸属于全屏清场：所有非 Boss 小怪在爆点同时死亡。
     const clearedMinions = this.killAllCommanderBlackwaterMinions();
     if (clearedMinions > 0) {
       this.spawnCommanderBlackwaterStagePulse({ color: 0xffe5b3, alpha: 0.26, duration: 260 });
     }
 
-    // 最终大坑与终爆同一帧开始“炸开”，不再像后补贴图。
     const finalCrater = this.spawnCommanderBlackwaterCrater(x, y + 4, 'medium', {
       rotation: Phaser.Math.Between(-4, 4),
       scaleJitter: 2.42,
@@ -13553,7 +12464,6 @@ export default class GameScene extends Phaser.Scene {
       revealMs: 175
     });
 
-    // 第一拍：红金十字命中爆，尺寸和亮度都明显抬高。
     if (this.textures.exists('potatoCommanderJudgmentExplosionArt')) {
       const holyBurst = this.trackCommanderBlackwaterFx(
         this.add.image(x, y + 2, 'potatoCommanderJudgmentExplosionArt')
@@ -13590,7 +12500,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 第二拍：黑水大爆从坑口同步翻起。
     if (this.textures.exists('potatoCommanderBlackwaterFinalImpactArt')) {
       const impact = this.trackCommanderBlackwaterFx(
         this.add.image(x, y + 12, 'potatoCommanderBlackwaterFinalImpactArt')
@@ -13626,7 +12535,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 大爆裂碎片：从终坑中心向外飞，强化“地面被炸开”的感觉。
     for (let i = 0; i < 24; i += 1) {
       const theta = Phaser.Math.FloatBetween(-Math.PI * 0.96, -Math.PI * 0.04);
       const dist = Phaser.Math.Between(90, 220);
@@ -13654,7 +12562,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // v1.0.20：终爆增加短促红金放射线，不再单靠一张大 PNG 撑华丽度。
     for (let i = 0; i < 16; i += 1) {
       const angle = (Math.PI * 2 * i) / 16 + Phaser.Math.FloatBetween(-0.08, 0.08);
       const ray = this.trackCommanderBlackwaterFx(
@@ -13716,22 +12623,17 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => impactPulse?.active && impactPulse.destroy()
     });
 
-    // v1.0.25：最终爆炸到“爆盲白屏结束”是一整段连续冲击。
-    // 白屏期间仍然保持强震；纯白停留结束后才停止震动，再开始恢复视野。
     const bombardmentVisibleMs = config.blackwaterFinalBombardmentVisibleMsV127 ?? 700;
     const whiteInMs = config.blackwaterFinalWhiteInMsV127 ?? 45;
     const whiteHoldMs = config.blackwaterFinalWhiteHoldMsV127 ?? 650;
     const whiteOutMs = config.blackwaterFinalWhiteOutMsV127 ?? 550;
     const blindShakeMs = bombardmentVisibleMs + whiteInMs + whiteHoldMs;
     this.cameras.main.shake(blindShakeMs, config.blackwaterFinalShakeStrengthV126 ?? 0.050, true);
-    // v1.0.29：废弃 v1.0.28 的高频/变调 hitLight 叠层。终爆只使用低频重爆炸主体，
-    // 声音重点是巨物撞击、地面崩裂与 sub-bass 余震，不再出现箭矢式“嗖/啪”质感。
     this.commanderBlackwaterFrenzySound?.stop?.();
     this.commanderBlackwaterFrenzySound?.destroy?.();
     this.commanderBlackwaterFrenzySound = null;
     this.sound?.play?.('blackwaterFinalBlastSfx', { volume: 0.94, rate: 1.0 });
 
-    // 终击镜头 punch：幅度小，但和持续强震叠加后会明显比普通十字更有重量。
     const baseZoom = Number(this.cameras.main.zoom) || 1;
     this.tweens.add({
       targets: this.cameras.main,
@@ -13743,7 +12645,6 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => this.cameras.main.setZoom(baseZoom)
     });
 
-    // 09 Ending 已经在疯狂阶段尾声完整出现；终爆期间只让终坑做一次短促震荡，不再改人物帧。
     if (finalCrater?.active) {
       this.tweens.add({
         targets: finalCrater,
@@ -13755,21 +12656,17 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 最终爆炸只给约 80ms 可见窗口，随后立刻过曝成白；从这里开始直到白屏结束都属于同一爆炸余波。
     const whiteStartDelayMs = Math.max(60, bombardmentVisibleMs);
-    // v1.0.20：白屏必须是一个独立、绝对可读的收束阶段。
-    // 用 4× 视口的 screen-space 纯白层并放到最高深度，避免 camera zoom / HUD / VFX 抢层。
     const whiteout = this.trackCommanderBlackwaterFx(
       this.add.rectangle(GAME.WIDTH / 2, GAME.HEIGHT / 2, GAME.WIDTH * 4, GAME.HEIGHT * 4, 0xffffff, 1)
         .setOrigin(0.5)
         .setAlpha(0)
         .setScrollFactor(0)
-        .setDepth(9999999) // legacy whiteout depth token: .setDepth(1000000)
+        .setDepth(9999999)
         .setBlendMode(Phaser.BlendModes.NORMAL)
     );
     const whiteStart = this.time.delayedCall(whiteStartDelayMs, () => {
       if (!whiteout?.active || !this.commanderBlackwaterPreviewActive) return;
-      // 爆炸本身把画面炸白：不是“爆炸结束后再白”，而是爆点亮度直接吞没画面。
       this.cameras.main.flash?.(110, 255, 255, 255, true);
       whiteout.setAlpha(0);
       this.commanderBlackwaterBlindSound?.stop?.();
@@ -13783,7 +12680,6 @@ export default class GameScene extends Phaser.Scene {
         ease: 'Quad.Out',
         onComplete: () => {
           if (!this.commanderBlackwaterPreviewActive) return;
-          // 全白时完成场景“擦除”：坑洞、爆炸、cut-in 全部消失；人物在白幕下恢复母版。
           this.clearCommanderBlackwaterCraters({ immediate: true });
           [
             this.commanderBlackwaterCloseupActor,
@@ -13807,7 +12703,6 @@ export default class GameScene extends Phaser.Scene {
 
           const holdEvent = this.time.delayedCall(whiteHoldMs, () => {
             if (!whiteout?.active || !this.commanderBlackwaterPreviewActive) return;
-            // v1.0.27：白屏时长压缩到 v1.0.26 的约 50%；纯白保持结束时爆炸余震停止。
             this.cameras.main.shakeEffect?.reset?.();
             this.cameras.main.setZoom?.(baseZoom);
             this.tweens.add({
@@ -13818,8 +12713,7 @@ export default class GameScene extends Phaser.Scene {
               onComplete: () => {
                 if (!this.commanderBlackwaterPreviewActive) return;
                 this.clearCommanderBlackwaterPreview({
-                  reopenDebug: debugPreview,
-                  resetJudgmentCycle: !debugPreview
+                  resetJudgmentCycle: true
                 });
               }
             });
@@ -13849,7 +12743,7 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
-  startCommanderBlackwaterCutscene(commander, { debugPreview = false } = {}) {
+  startCommanderBlackwaterCutscene(commander) {
     if (
       !commander?.active
       || commander.isDead
@@ -13868,11 +12762,7 @@ export default class GameScene extends Phaser.Scene {
 
     const config = ENEMIES.potatoCommander;
     const player = this.player;
-    if (debugPreview) player.hp = player.maxHp;
 
-    // v1.0.15：先结束普攻 / 踩拍 / 闪步等短动作，再抓取尺寸。
-    // 这样记录的是玩家在普通战斗中的真实基准大小，而不是某个 tween 中间态，
-    // 也不再错误地把构造函数里的 60×60 初始化值当成“正常游戏大小”。
     player.cancelVisualAction?.({ restore: true, forceRestore: true });
     this.commanderBlackwaterPlayerRestore = {
       x: player.x,
@@ -13886,6 +12776,7 @@ export default class GameScene extends Phaser.Scene {
       alpha: player.alpha,
       depth: player.depth,
       flipX: player.flipX,
+      visible: player.visible !== false,
       upgradeInvincible: player.upgradeInvincible,
       stunnedUntil: player.stunnedUntil
     };
@@ -13893,12 +12784,9 @@ export default class GameScene extends Phaser.Scene {
     player.isDashing = false;
     player.upgradeInvincible = true;
 
-    // v1.0.23：标题阶段与人物演绎彻底分离。
-    // 「下黑水」三个字完整出现并消失之前，不启动 cut-in、不换人物演绎帧，也不下十字雨。
     const preludePauseMs = config.blackwaterPreludePauseMs ?? 520;
     const titleHoldMs = config.blackwaterTitleHoldMsV124 ?? config.blackwaterTitleHoldMsV123 ?? 850;
     const performanceStartAt = preludePauseMs + titleHoldMs + 60;
-    // v1.0.24：标题完全消失后才开始表演；第一枚雨十字在表演开始后约 0.42s 进入。
     const rainStartAt = Math.max(config.blackwaterRainStartMs ?? 1450, performanceStartAt + 340);
     const postHoldMs = config.blackwaterPostHoldMs ?? 1450;
     player.stunnedUntil = Math.max(player.stunnedUntil ?? -Infinity, this.time.now + 18000);
@@ -13915,7 +12803,6 @@ export default class GameScene extends Phaser.Scene {
       view.y + 165,
       view.bottom - 90
     );
-    // 标题阶段保持主角当前母版和当前位置；标题消失后才把主角轻推到演绎锚点。
 
     this.judgmentHeadHitStreak = 0;
     this.judgmentLastHeadHitAt = -Infinity;
@@ -13937,7 +12824,6 @@ export default class GameScene extends Phaser.Scene {
       return event;
     };
 
-    // 起手只做暗场 + 技能名；标题未退完前，不启动人物演绎 / cut-in / 十字雨。
     const shade = this.trackCommanderBlackwaterFx(
       this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x08040a, 0)
         .setOrigin(0)
@@ -13956,7 +12842,6 @@ export default class GameScene extends Phaser.Scene {
       this.spawnCommanderBlackwaterStagePulse({ color: 0x6f0717, alpha: 0.13, duration: 420 });
     });
 
-    // 标题完全消失后才正式开始演绎：母版 → 抬头警觉 → 十字追击。
     later(performanceStartAt, () => {
       this.setCommanderBlackwaterPlayerFrame('playerArt', {
         x: anchorX,
@@ -13978,8 +12863,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // v1.0.16：S4 施法立绘只负责前摇，十字雨开始后尽快退回正常 Boss 形象，
-    // 避免右侧长期红金法阵抢走“主角 + 十字雨 + 最终爆破”的视觉焦点。
     later(rainStartAt + 260, () => commander.restoreNormalAfterJudgment?.());
 
     const counts = config.judgmentRainCounts ?? [8, 18, 42];
@@ -13989,7 +12872,6 @@ export default class GameScene extends Phaser.Scene {
     const stageStarts = [];
     const stageEnds = [];
 
-    // 原始圣裁节奏原样恢复：4×3 全屏随机轮换，三段 8 → 18 → 42，最后 35% 突然塌缩成暴雨。
     counts.forEach((count, stageIndex) => {
       stageStarts[stageIndex] = cursorMs;
       const baseInterval = intervals[stageIndex] ?? 120;
@@ -13998,13 +12880,10 @@ export default class GameScene extends Phaser.Scene {
         const progress = count <= 1 ? 1 : (i / (count - 1));
         let phaseInterval = baseInterval;
         if (stageIndex === 0) {
-          // v1.0.25：前段故意留呼吸感。第一波不是一上来就急，而是从约 230ms
-          // 逐步压到约 175ms，让玩家先看懂“十字在追人”。
           phaseInterval = Math.max(174, Math.round(
             Phaser.Math.Linear(baseInterval * 0.82, baseInterval * 0.62, progress)
           ));
         } else if (stageIndex === 1) {
-          // 第二段继续加速，但仍保留清楚拍点；真正的失控只留给第三段。
           phaseInterval = Math.max(80, Math.round(
             Phaser.Math.Linear(baseInterval * 1.05, baseInterval * 0.70, progress)
           ));
@@ -14033,8 +12912,7 @@ export default class GameScene extends Phaser.Scene {
       stageEnds[stageIndex] = cursorMs;
     });
 
-    // 原版结尾密集连发也保留，让“暴雨顶点”有明确节拍。
-    const rainFinalAt = performanceStartAt + 7220; // v1.0.25：疯狂阶段持续到 7.40s 最终十字前，预终结连发在这里收束。
+    const rainFinalAt = performanceStartAt + 7220;
     [
       { offset: -860, count: 4 },
       { offset: -730, count: 5 },
@@ -14055,7 +12933,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 三个阶段转场只做轻微红金压屏，不取代十字本身的爆炸节奏。
     later(stageStarts[0], () => {
       this.spawnCommanderBlackwaterStagePulse({ color: 0x6f0717, alpha: 0.12, duration: 360 });
       this.spawnCommanderBlackwaterStageOrnament(0);
@@ -14076,26 +12953,22 @@ export default class GameScene extends Phaser.Scene {
       this.commanderBlackwaterFrenzySound?.play?.();
     });
 
-    // v1.0.24：逐帧时间轴完全锁定到标题消失后的 performanceStartAt。
-    // 0.00s 母版 → 0.16s 抬头 → 多一轮左右闪躲 → 2.96s 进入 3.4s 疯狂暴雨
-    // → 07 / 08 / 09 同方向逐步撑不住 → 6.36s 最终爆炸。
     const scripted = {
-      // v1.0.25 节奏：先从容、逐渐加速；受伤后反而慢下来，再被 3.4s 暴雨彻底压垮。
       master: performanceStartAt,
       alert: performanceStartAt + 220,
-      dodge1Impact: performanceStartAt + 990,   // 02 在约 0.78s 开始闪
+      dodge1Impact: performanceStartAt + 990,
       glance1: performanceStartAt + 1200,
-      dodge2Impact: performanceStartAt + 1740,  // 04 在约 1.54s 开始闪
+      dodge2Impact: performanceStartAt + 1740,
       glanceMirror: performanceStartAt + 1920,
-      dodge3Impact: performanceStartAt + 2410,  // 02 镜像在约 2.22s 开始闪
+      dodge3Impact: performanceStartAt + 2410,
       glanceQuick: performanceStartAt + 2560,
-      dodge4Impact: performanceStartAt + 3000,  // 04 镜像在约 2.82s 开始闪
-      extremeImpact: performanceStartAt + 3270, // 05 在约 3.12s 开始，约 0.22s
-      woundedAImpact: performanceStartAt + 3510,// 06 从约 3.34s 开始，节奏明显放慢
-      woundedB: performanceStartAt + 4000,      // 07：硬撑
-      down: performanceStartAt + 5150,          // 08：撑不住倒下
-      ending: performanceStartAt + 6300,        // 09：彻底趴下
-      final: performanceStartAt + 7400           // 07→08→09 疯狂阶段总长 3.40s
+      dodge4Impact: performanceStartAt + 3000,
+      extremeImpact: performanceStartAt + 3270,
+      woundedAImpact: performanceStartAt + 3510,
+      woundedB: performanceStartAt + 4000,
+      down: performanceStartAt + 5150,
+      ending: performanceStartAt + 6300,
+      final: performanceStartAt + 7400
     };
 
     const scheduleScriptedCross = ({
@@ -14110,7 +12983,6 @@ export default class GameScene extends Phaser.Scene {
       onImpact = null
     }) => {
       const timing = this.getCommanderJudgmentRainTiming(stageIndex, frenzy);
-      // 剧情十字以“真实落地时间”为唯一基准，不再依赖阶段开始时间。
       const fireAt = Math.max(rainStartAt, impactAt - timing.totalMs);
       const dodgeAt = Math.max(fireAt + timing.telegraphMs, impactAt - dodgeLeadMs);
       later(fireAt, () => {
@@ -14129,7 +13001,6 @@ export default class GameScene extends Phaser.Scene {
       return { fireAt, dodgeAt, impactAt };
     };
 
-    // 02：第一次闪躲。十字砸在母版刚刚站的位置。
     scheduleScriptedCross({
       impactAt: scripted.dodge1Impact,
       stageIndex: 0,
@@ -14151,7 +13022,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 03：第一次回头确认。
     later(scripted.glance1, () => {
       this.setCommanderBlackwaterPlayerFrame('playerBlackwaterGlanceBackArt', {
         x: anchorX + 28,
@@ -14163,7 +13033,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 04：第二次反向闪躲。
     scheduleScriptedCross({
       impactAt: scripted.dodge2Impact,
       stageIndex: 0,
@@ -14185,7 +13054,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 新增一个完整来回：03 镜像 → 02 镜像 → 03 快速过渡 → 04 镜像。
     later(scripted.glanceMirror, () => {
       this.setCommanderBlackwaterPlayerFrame('playerBlackwaterGlanceBackArt', {
         x: anchorX - 28,
@@ -14250,7 +13118,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 05：只停 0.20s，作为极限闪躲瞬间，不再拖节奏。
     scheduleScriptedCross({
       impactAt: scripted.extremeImpact,
       stageIndex: 1,
@@ -14272,7 +13139,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 06：开始擦伤，动作明显变慢。
     scheduleScriptedCross({
       impactAt: scripted.woundedAImpact,
       stageIndex: 1,
@@ -14295,8 +13161,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // v1.0.25 疯狂阶段：固定 3.40s（4.00s → 7.40s）。受伤后动作变慢，但雨势继续变快。
-    // 07 / 08 / 09 在同一方向上逐步撑不住；07 原图方向相反，因此只镜像 07。
     later(scripted.woundedB, () => {
       this.setCommanderBlackwaterPlayerFrame('playerBlackwaterWoundedDodgeBArt', {
         x: anchorX + 14,
@@ -14334,7 +13198,6 @@ export default class GameScene extends Phaser.Scene {
       this.cameras.main.shake(560, 0.020);
     });
 
-    // 满屏“十字雨”专用密集层：3.40s 内持续叠加在原 8→18→42 雨势之上。
     const frenzyStartAt = scripted.woundedB;
     const frenzyEndAt = scripted.final;
     let frenzyCursor = frenzyStartAt;
@@ -14361,7 +13224,6 @@ export default class GameScene extends Phaser.Scene {
       frenzyTick += 1;
     }
 
-    // 疯狂阶段的持续底震；单枚十字落地还会继续叠加自己的落地震动。
     const frenzyPulseStepMs = 170;
     const frenzyPulseCount = Math.ceil((frenzyEndAt - frenzyStartAt) / frenzyPulseStepMs);
     for (let i = 0; i < frenzyPulseCount; i += 1) {
@@ -14372,15 +13234,12 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // v1.0.26：全段最猛烈的“要起爆了”震动放在 09 已经完全趴下之后。
-    // 不改变人物动作时间轴，只在最终十字命中前半秒把地面震感推到最高。
     later(scripted.final - 520, () => {
       if (!player?.active || player.texture?.key !== 'playerBlackwaterEndingArt') return;
       this.cameras.main.shake(540, 0.062, true);
       this.spawnCommanderBlackwaterStagePulse({ color: 0xffd9ad, alpha: 0.20, duration: 300 });
     });
 
-    // 最后一枚剧情十字精确落地；落地后进入“爆炸/HP扣除 → 爆盲白屏 → 恢复”。
     const finalTiming = this.getCommanderJudgmentRainTiming(2, 1);
     later(Math.max(rainStartAt, scripted.final - finalTiming.totalMs), () => {
       this.spawnCommanderJudgmentRainCross(2, 1, null, {
@@ -14388,7 +13247,7 @@ export default class GameScene extends Phaser.Scene {
         targetY: anchorY + 30,
         craterSize: 'medium',
         scripted: true,
-        onImpact: () => this.playCommanderBlackwaterFinalImpact(commander, { debugPreview })
+        onImpact: () => this.playCommanderBlackwaterFinalImpact(commander)
       });
     });
 
@@ -14403,141 +13262,13 @@ export default class GameScene extends Phaser.Scene {
     );
     this.spawnCommanderJudgmentCastAura(commander, Math.max(800, totalLockMs - 260), { intensity: 0.48 });
 
-    // 正常结束由“最终白屏淡出完成”直接恢复 gameplay。这里只留一个容错回收，避免浏览器漏 tween callback。
     later(totalLockMs, () => {
       if (!this.commanderBlackwaterPreviewActive) return;
       this.clearCommanderBlackwaterPreview({
-        reopenDebug: debugPreview,
-        resetJudgmentCycle: !debugPreview
+        resetJudgmentCycle: true
       });
     });
 
-    return true;
-  }
-
-  debugPreviewCommanderBlackwater() {
-    const commander = this.ensurePotatoCommanderForDebug();
-    if (!commander || !this.player?.active) return false;
-    if (this.commanderBlackwaterPreviewActive) return false;
-
-    this.importantText?.clearSource?.(commander);
-    commander.debugJumpToGameplayPhase?.(3);
-    commander.judgmentGraceCount = ENEMIES.potatoCommander.judgmentGraceCastsRequired ?? 3;
-    commander.judgmentPending = true;
-    commander.judgmentFaithCharge = ENEMIES.potatoCommander.absorbJudgmentChargeCap ?? 18;
-    this.updateCommanderJudgmentHud?.(commander, true);
-
-    // 直发预览自动收起面板；演绎结束后再打开，方便连续调试。
-    this.toggleDuckQueenDebugPanel(false);
-    const ok = this.startCommanderBlackwaterCutscene(commander, { debugPreview: true });
-    if (!ok) this.showScreenNotice?.('「下黑水演绎当前无法播放」', '#ffb0b0');
-    return ok;
-  }
-
-  ensureDuckQueenForDebug() {
-    if (this.duckQueen?.active && !this.duckQueen.isDead) return this.duckQueen;
-    if (this.bossActive) {
-      this.showScreenNotice('「当前已有其他Boss，无法召唤丹麦鸭」', '#ffb0b0');
-      return null;
-    }
-
-    this.startGameplayExperience();
-    if (this.waitingForGameStart) {
-      this.waitingForGameStart = false;
-      this.gameStartInitiated = false;
-      (this.gameStartGate ?? []).forEach((item) => item?.destroy());
-      this.gameStartGate = null;
-      this.adaptiveMusic?.start?.();
-    }
-
-    const queen = this.spawnSystem.spawnDuckQueen({ force: true, debug: true });
-    if (!queen) {
-      this.showScreenNotice('「丹麦鸭测试召唤失败」', '#ff9b9b');
-      return null;
-    }
-    queen.setTarget(this.player);
-    queen.stunnedUntil = -Infinity;
-    queen.body?.setEnable(true);
-    queen.setActive(true).setVisible(true);
-    return queen;
-  }
-
-  debugSetDuckQueenPhase(phase) {
-    const queen = this.ensureDuckQueenForDebug();
-    if (!queen) return false;
-    this.setDuckQueenDebugPhase(phase);
-    return true;
-  }
-
-  debugTriggerDuckQueenSkill(skill) {
-    const queen = this.ensureDuckQueenForDebug();
-    if (!queen) return false;
-
-    const phase = queen.getPhase?.() ?? 'gentle';
-    if (phase === 'gentle' && ['charm', 'fish', 'stick'].includes(skill)) {
-      this.showScreenNotice('「该技能需阶段2或阶段3」', '#ffb6d7');
-      return false;
-    }
-
-    if (skill === 'stick') {
-      const range = queen.getStickTriggerRange?.(phase) ?? 195;
-      const distance = Phaser.Math.Distance.Between(queen.x, queen.y, this.player.x, this.player.y);
-      if (distance > range) {
-        this.showScreenNotice('「贴贴测试：请先靠近或点“重置位置”」', '#ffb6d7');
-        return false;
-      }
-    }
-
-    const ok = queen.debugQueueMajorAction?.([skill], this.time.now, {
-      ignoreCooldown: this.duckQueenDebugIgnoreCooldown,
-      name: `debug_${skill}`
-    });
-    if (!ok) {
-      this.showScreenNotice('「技能当前不可发动：检查CD / 距离 / 当前状态」', '#ffb6d7');
-    }
-    return Boolean(ok);
-  }
-
-  debugTriggerDuckQueenCombo(name) {
-    const queen = this.ensureDuckQueenForDebug();
-    if (!queen) return false;
-    if (queen.getPhase?.() === 'gentle') {
-      this.showScreenNotice('「Combo 需阶段2或阶段3」', '#ffb6d7');
-      return false;
-    }
-
-    const combos = {
-      charm_fish: ['charm', 'fish'],
-      fish_stick: ['fish', 'stick'],
-      charm_fish_stick: ['charm', 'fish', 'stick']
-    };
-    const steps = combos[name];
-    if (!steps) return false;
-
-    const ok = queen.debugQueueMajorAction?.(steps, this.time.now, {
-      ignoreCooldown: this.duckQueenDebugIgnoreCooldown,
-      name: `debug_${name}`
-    });
-    if (!ok) {
-      this.showScreenNotice('「Combo 当前不可发动：检查CD / 距离 / 当前状态」', '#ffb6d7');
-    }
-    return Boolean(ok);
-  }
-
-  debugResetDuckQueenPositions() {
-    const queen = this.ensureDuckQueenForDebug();
-    if (!queen || !this.player?.active) return false;
-
-    const centerX = Phaser.Math.Clamp(GAME.WORLD_WIDTH / 2, 220, GAME.WORLD_WIDTH - 220);
-    const centerY = Phaser.Math.Clamp(GAME.WORLD_HEIGHT / 2, 180, GAME.WORLD_HEIGHT - 180);
-    this.player.setPosition(centerX - 90, centerY);
-    this.player.setVelocity(0, 0);
-    queen.setPosition(centerX + 90, centerY);
-    queen.setVelocity(0, 0);
-    queen.setTarget(this.player);
-    queen.ensureContinuousMotion?.(this.time.now);
-    this.cameras.main.centerOn(this.player.x, this.player.y);
-    this.showScreenNotice('「丹麦鸭测试位置已重置」', '#ffd0e6');
     return true;
   }
 
@@ -14566,27 +13297,48 @@ export default class GameScene extends Phaser.Scene {
     const player = this.player;
     const restore = this.duckQueenUltimatePlayerRestore;
 
-    if (this.duckQueenUltimatePlayerActor?.active) {
-      this.tweens.killTweensOf(this.duckQueenUltimatePlayerActor);
-      this.duckQueenUltimatePlayerActor.destroy();
+    const legacyActor = this.duckQueenUltimatePlayerActor;
+    if (legacyActor?.active && legacyActor !== player) {
+      this.tweens.killTweensOf(legacyActor);
+      legacyActor.destroy();
     }
     this.duckQueenUltimatePlayerActor = null;
 
     if (player?.active) {
+      this.tweens.killTweensOf(player);
+      player.cancelVisualAction?.({ restore: false, forceRestore: false });
       player.setVelocity(0, 0);
-      if (restore) {
-        player.setAlpha(restore.alpha ?? 1);
-        player.setDepth(restore.depth ?? 10);
-        player.setFlipX(restore.flipX ?? false);
-        player.upgradeInvincible = Boolean(restore.upgradeInvincible);
-        player.stunnedUntil = Number.isFinite(restore.stunnedUntil)
-          ? restore.stunnedUntil
-          : -Infinity;
-      } else {
-        player.setAlpha(1);
+
+      if (restore?.textureKey && this.textures.exists(restore.textureKey)) {
+        player.setTexture(restore.textureKey);
       }
+      if (Number.isFinite(restore?.displayWidth) && Number.isFinite(restore?.displayHeight)) {
+        player.setDisplaySize(restore.displayWidth, restore.displayHeight);
+      }
+      if (Number.isFinite(restore?.originX) && Number.isFinite(restore?.originY)) {
+        player.setOrigin(restore.originX, restore.originY);
+      }
+      if (Number.isFinite(restore?.x) && Number.isFinite(restore?.y)) {
+        player.setPosition(restore.x, restore.y);
+      }
+      player.setAngle(Number.isFinite(restore?.angle) ? restore.angle : 0);
+      player.setVisible(restore?.visible ?? true);
+      player.setAlpha(restore?.alpha ?? 1);
+      player.setDepth(restore?.depth ?? 10);
+      player.setFlipX(restore?.flipX ?? false);
+      player.upgradeInvincible = Boolean(restore?.upgradeInvincible);
+      player.stunnedUntil = Number.isFinite(restore?.stunnedUntil)
+        ? restore.stunnedUntil
+        : -Infinity;
       player.slowUntil = -Infinity;
       player.slowMultiplier = 1;
+      player.clearTint?.();
+
+      if (player.body) {
+        const sx = Math.max(0.001, Math.abs(player.scaleX));
+        const sy = Math.max(0.001, Math.abs(player.scaleY));
+        player.body.setSize(35.625 / sx, 44.0625 / sy, true);
+      }
     }
 
     this.duckQueenUltimatePlayerRestore = null;
@@ -14621,15 +13373,12 @@ export default class GameScene extends Phaser.Scene {
   clearDuckQueenUltimate({ restoreQueen = true, applyCooldown = false } = {}) {
     (this.duckQueenUltimateEvents ?? []).forEach((event) => event?.remove?.(false));
     this.duckQueenUltimateEvents = [];
-    // legacy alias used by older debug helpers/checks
-    this.duckQueenDebugUltimateEvents = this.duckQueenUltimateEvents;
 
     if (this.duckQueenUltimateTitle?.active) {
       this.tweens.killTweensOf(this.duckQueenUltimateTitle);
       this.duckQueenUltimateTitle.destroy();
     }
     this.duckQueenUltimateTitle = null;
-    this.duckQueenDebugUltimateTitle = null;
 
     this.clearDuckQueenUltimateBlackframes({ immediate: true });
     this.stopDuckQueenDafamaiMinionEvacuation();
@@ -14639,7 +13388,6 @@ export default class GameScene extends Phaser.Scene {
     const queen = this.duckQueen;
     this.duckQueenUltimateActive = false;
     this.duckQueenUltimateStage = 'idle';
-    this.duckQueenDebugUltimatePreviewActive = false;
 
     if (queen?.active && !queen.isDead) {
       if (applyCooldown) queen.registerUltimateCompleted?.(this.time.now);
@@ -14649,11 +13397,6 @@ export default class GameScene extends Phaser.Scene {
         queen.resumeRoamingState?.(this.time.now);
       }
     }
-  }
-
-  // Backward-compatible name retained because dev14.16.x tooling referenced it.
-  clearDuckQueenDebugUltimatePreview() {
-    this.clearDuckQueenUltimate({ restoreQueen: true, applyCooldown: false });
   }
 
   updateDuckQueenUltimate(time = this.time.now) {
@@ -14675,10 +13418,14 @@ export default class GameScene extends Phaser.Scene {
       player.setPosition(x, y);
       player.setVelocity(0, 0);
       player.isDashing = false;
-      // 真正的主角 Sprite 在演出期间隐藏；画面由锁定的大发卖角色帧承担。
-      player.setAlpha(0);
-      if (this.duckQueenUltimatePlayerActor?.active) {
-        this.duckQueenUltimatePlayerActor.setPosition(x, y);
+
+      if (stage === 'explosion') {
+        player.setVisible(false);
+        player.setAlpha(0);
+      } else {
+        player.setVisible(true);
+        player.setAlpha(1);
+        player.setDepth(40);
       }
     }
   }
@@ -14703,9 +13450,6 @@ export default class GameScene extends Phaser.Scene {
       evacuees.push(enemy);
     });
 
-    // 每只怪固定一个独立逃生目标，而不是每帧只沿同一条“远离中心”的射线跑。
-    // 目标角度以怪物当前方位为基准，再加入较大的左右偏角，并按序号轻微扇开。
-    // 即使一群怪原本挤在主角同一侧，也会明显四散，而不是排成一股人流。
     evacuees.forEach((enemy, index) => {
       enemy.dafamaiEvadeSeed ??= Phaser.Math.FloatBetween(0, Math.PI * 2);
       const dx = enemy.x - this.duckQueenDafamaiEvacuationCenterX;
@@ -14732,7 +13476,6 @@ export default class GameScene extends Phaser.Scene {
       enemy.dafamaiEvadeTargetY = null;
       enemy.dafamaiEvadeAngle = null;
       enemy.dafamaiPendingExplosion = false;
-      // 紫蟑螂不能继续被「发糖」拉回红水晶中心。
       if (enemy.enemyType === 'roach') {
         enemy.queenCandyLure = null;
         enemy.queenCandyLuredUntil = -Infinity;
@@ -14766,7 +13509,6 @@ export default class GameScene extends Phaser.Scene {
       || !this.isDuckQueenDafamaiEvacuationEnemy(enemy)
     ) return false;
 
-    // 已进入紫蟑螂链爆预备状态时留在外围原地闪烁，不再继续跑动。
     if (enemy.dafamaiPendingExplosion) {
       enemy.setVelocity?.(0, 0);
       return true;
@@ -14791,8 +13533,6 @@ export default class GameScene extends Phaser.Scene {
     enemy.dafamaiEvadeSeed ??= Phaser.Math.FloatBetween(0, Math.PI * 2);
 
     if (metric < 1) {
-      // 在红水晶范围内：朝各自的外围目标四散逃。
-      // 目标本身已经带随机偏角；这里再加轻微 separation，避免成群小怪挤在同一条路线上。
       let targetX = enemy.dafamaiEvadeTargetX;
       let targetY = enemy.dafamaiEvadeTargetY;
       if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
@@ -14832,7 +13572,6 @@ export default class GameScene extends Phaser.Scene {
         escape.add(separation).normalize();
       }
 
-      // 少量不规则摆动只负责“慌着逃”的自然感，不再决定大家的主方向。
       const tangent = new Phaser.Math.Vector2(-escape.y, escape.x)
         .scale(Math.sin(time * 0.007 + enemy.dafamaiEvadeSeed) * 0.12);
       escape.add(tangent).normalize();
@@ -14853,7 +13592,6 @@ export default class GameScene extends Phaser.Scene {
       return true;
     }
 
-    // 已经逃出水晶地面：记住外围落脚点，只做很小的游荡，不重新锁定主角。
     if (!Number.isFinite(enemy.dafamaiEvadeSafeX) || !Number.isFinite(enemy.dafamaiEvadeSafeY)) {
       enemy.dafamaiEvadeSafeX = enemy.x;
       enemy.dafamaiEvadeSafeY = enemy.y;
@@ -15010,7 +13748,6 @@ export default class GameScene extends Phaser.Scene {
         frame.dqFollowPlayer = true;
         const slowPerHit = cfg.ultimateBlackframeSlowPerHit ?? 0.20;
         const multiplier = Phaser.Math.Clamp(1 - slowPerHit * (hitIndex + 1), 0.2, 1);
-        // 维持到大发卖标题结束；标题消失后立即切入无操作演出。
         player.applySlow?.(multiplier, 5000, this.time.now);
         this.cameras.main.shake(110 + hitIndex * 35, 0.005 + hitIndex * 0.002);
         this.sound?.play?.('hitLight', { volume: 0.28 + hitIndex * 0.04 });
@@ -15042,10 +13779,8 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(520)
       .setAlpha(0);
     const fitScale = Math.min(1, (GAME.WIDTH * 0.76) / Math.max(1, title.width));
-    // 与「圣裁」同层级：170% 大字砸到 100%，不额外堆叠花哨装饰。
     title.setScale(fitScale * 1.70);
     this.duckQueenUltimateTitle = title;
-    this.duckQueenDebugUltimateTitle = title;
     this.cameras.main.shake(120, 0.006);
     this.tweens.add({
       targets: title,
@@ -15069,7 +13804,6 @@ export default class GameScene extends Phaser.Scene {
         onComplete: () => {
           if (title.active) title.destroy();
           if (this.duckQueenUltimateTitle === title) this.duckQueenUltimateTitle = null;
-          if (this.duckQueenDebugUltimateTitle === title) this.duckQueenDebugUltimateTitle = null;
         }
       });
     });
@@ -15078,25 +13812,42 @@ export default class GameScene extends Phaser.Scene {
   }
 
   setDuckQueenDafamaiPlayerFrame(textureKey, { displayScale = 1 } = {}) {
-    if (!this.textures.exists(textureKey)) return null;
-    const cfg = ENEMIES.duckQueen;
-    const baseSize = cfg.ultimateCutsceneDisplaySize ?? 132;
-    const size = baseSize * Math.max(0.1, displayScale);
-    const x = this.duckQueenUltimateAnchorX ?? this.player?.x ?? 0;
-    const y = this.duckQueenUltimateAnchorY ?? this.player?.y ?? 0;
+    const player = this.player;
+    if (!player?.active || !this.textures.exists(textureKey)) return null;
 
-    if (!this.duckQueenUltimatePlayerActor?.active) {
-      this.duckQueenUltimatePlayerActor = this.add.image(x, y, textureKey)
-        .setOrigin(0.5)
-        .setDepth(40)
-        .setDisplaySize(size, size);
-    } else {
-      this.duckQueenUltimatePlayerActor
-        .setTexture(textureKey)
-        .setDisplaySize(size, size)
-        .setPosition(x, y);
+    const cfg = ENEMIES.duckQueen;
+    const baseSize = cfg.ultimateCutsceneDisplaySize ?? 180;
+    const size = baseSize * Math.max(0.1, displayScale);
+    const x = this.duckQueenUltimateAnchorX ?? player.x;
+    const y = this.duckQueenUltimateAnchorY ?? player.y;
+
+    const legacyActor = this.duckQueenUltimatePlayerActor;
+    if (legacyActor?.active && legacyActor !== player) {
+      this.tweens.killTweensOf(legacyActor);
+      legacyActor.destroy();
     }
-    return this.duckQueenUltimatePlayerActor;
+
+    player.cancelVisualAction?.({ restore: true, forceRestore: true });
+    player.setTexture(textureKey);
+    player.setOrigin(0.5, 0.5);
+    player.setDisplaySize(size, size);
+    player.setPosition(x, y);
+    player.setAngle(0);
+    player.setFlipX(false);
+    player.setFlipY(false);
+    player.setVisible(true);
+    player.setAlpha(1);
+    player.setDepth(40);
+    player.setVelocity(0, 0);
+
+    if (player.body) {
+      const sx = Math.max(0.001, Math.abs(player.scaleX));
+      const sy = Math.max(0.001, Math.abs(player.scaleY));
+      player.body.setSize(35.625 / sx, 44.0625 / sy, true);
+    }
+
+    this.duckQueenUltimatePlayerActor = player;
+    return player;
   }
 
   setDuckQueenDafamaiGroundStage(textureKey, { fadeMs = null, impale = false } = {}) {
@@ -15119,7 +13870,6 @@ export default class GameScene extends Phaser.Scene {
     );
     this.duckQueenUltimateGroundActor = ground;
 
-    // 只做交叉淡入，不做 scale in/out。这样每一阶段看起来是地面持续向内“填充”，而不是魔法圈忽大忽小。
     this.tweens.add({
       targets: ground,
       alpha: 1,
@@ -15136,7 +13886,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 红粉光只随阶段增强，不改变几何尺寸，用亮度递进去强化“危险正在侵蚀中心”的方向感。
     const glow = this.trackDuckQueenUltimateFx(
       this.add.image(x, y, textureKey)
         .setOrigin(0.5)
@@ -15215,17 +13964,18 @@ export default class GameScene extends Phaser.Scene {
     return this.duckQueenUltimateCloseupBitmapMask ?? null;
   }
 
-  setDuckQueenDafamaiCloseupFrame(textureKey, intensity = 0.45) {
+  setDuckQueenDafamaiCloseupFrame(textureKey, intensity = 0.45, { displayScale = 1 } = {}) {
     if (!this.textures.exists(textureKey)) return null;
     const cfg = ENEMIES.duckQueen;
     const clamped = Phaser.Math.Clamp(intensity, 0, 1);
     const screenX = cfg.ultimateCloseupScreenX ?? 150;
     const bottomY = cfg.ultimateCloseupBottomY ?? GAME.HEIGHT;
-    const baseH = cfg.ultimateCloseupDisplayH ?? 650;
-    const displayH = baseH + clamped * (cfg.ultimateCloseupPushInPx ?? 72);
+    const baseH = cfg.ultimateCloseupDisplayH ?? 690;
+    const pushInH = baseH + clamped * (cfg.ultimateCloseupPushInPx ?? 100);
+    const displayH = pushInH * Math.max(0.1, Number(displayScale) || 1);
     const mask = this.ensureDuckQueenDafamaiCloseupPresentation();
 
-    const setup = (img, alpha, depth, xOffset = 0, extraScale = 1) => {
+    const setupActor = (img, alpha, depth, xOffset = 0, extraScale = 1) => {
       img.setTexture(textureKey)
         .setOrigin(0.5, 1)
         .setScrollFactor(0)
@@ -15233,8 +13983,6 @@ export default class GameScene extends Phaser.Scene {
         .setPosition(screenX + xOffset, bottomY)
         .setAlpha(alpha);
 
-      // 不再 setCrop。放大的原始角色 PNG 允许超出屏幕左/上边，
-      // 但右侧进入主战场的部分由 feather bitmap mask 自然淡出，避免内部出现硬直线切口。
       const sourceW = Math.max(1, img.frame?.realWidth ?? img.width ?? 1);
       const sourceH = Math.max(1, img.frame?.realHeight ?? img.height ?? 1);
       const aspect = sourceW / sourceH;
@@ -15243,38 +13991,41 @@ export default class GameScene extends Phaser.Scene {
       return img;
     };
 
-    if (!this.duckQueenUltimateCloseupGlow?.active) {
-      this.duckQueenUltimateCloseupGlow = this.trackDuckQueenUltimateFx(
-        this.add.image(screenX - 6, bottomY, textureKey)
-      );
-      this.duckQueenUltimateCloseupGlow
-        .setBlendMode(Phaser.BlendModes.ADD)
-        .setTint(0xff4f99);
-    }
     if (!this.duckQueenUltimateCloseupActor?.active) {
       this.duckQueenUltimateCloseupActor = this.trackDuckQueenUltimateFx(
         this.add.image(screenX, bottomY, textureKey)
       );
     }
 
-    setup(this.duckQueenUltimateCloseupGlow, 0.08 + clamped * 0.13, 146, -6, 1.035);
-    setup(this.duckQueenUltimateCloseupActor, 0.52 + clamped * 0.34, 147, 0, 1);
+    setupActor(this.duckQueenUltimateCloseupActor, 0.52 + clamped * 0.34, 147, 0, 1);
 
-    // 重点仍然是表情：恐惧升级时只做轻微推近，不把 cut-in 变成全身展示。
-    this.tweens.killTweensOf(this.duckQueenUltimateCloseupActor);
+    if (!this.duckQueenUltimateCloseupGlow?.active || !this.duckQueenUltimateCloseupGlow.setTexture) {
+      if (this.duckQueenUltimateCloseupGlow?.active) this.duckQueenUltimateCloseupGlow.destroy();
+      this.duckQueenUltimateCloseupGlow = this.trackDuckQueenUltimateFx(
+        this.add.image(screenX - 6, bottomY, textureKey)
+      );
+    }
+    this.duckQueenUltimateCloseupGlow
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(0xff4f99);
+    setupActor(this.duckQueenUltimateCloseupGlow, 0.08 + clamped * 0.13, 146, -6, 1.035);
+
     this.tweens.killTweensOf(this.duckQueenUltimateCloseupGlow);
-    this.tweens.add({
-      targets: this.duckQueenUltimateCloseupActor,
-      x: screenX + clamped * 10,
-      duration: 460,
-      ease: 'Sine.Out'
-    });
     this.tweens.add({
       targets: this.duckQueenUltimateCloseupGlow,
       x: screenX - 8 + clamped * 14,
       duration: 500,
       ease: 'Sine.Out'
     });
+
+    this.tweens.killTweensOf(this.duckQueenUltimateCloseupActor);
+    this.tweens.add({
+      targets: this.duckQueenUltimateCloseupActor,
+      x: screenX + clamped * 10,
+      duration: 460,
+      ease: 'Sine.Out'
+    });
+
     return this.duckQueenUltimateCloseupActor;
   }
 
@@ -15308,7 +14059,17 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenUltimateCutsceneActive = true;
     this.duckQueenUltimateAnchorX = player.x;
     this.duckQueenUltimateAnchorY = player.y;
+    player.cancelVisualAction?.({ restore: true, forceRestore: true });
     this.duckQueenUltimatePlayerRestore = {
+      x: player.x,
+      y: player.y,
+      textureKey: player.texture?.key ?? 'playerArt',
+      displayWidth: Math.abs(Number(player.displayWidth) || 60),
+      displayHeight: Math.abs(Number(player.displayHeight) || 60),
+      originX: player.originX,
+      originY: player.originY,
+      angle: Number(player.angle) || 0,
+      visible: player.visible !== false,
       alpha: player.alpha,
       depth: player.depth,
       flipX: player.flipX,
@@ -15317,7 +14078,6 @@ export default class GameScene extends Phaser.Scene {
     };
     this.startDuckQueenDafamaiMinionEvacuation();
 
-    // 标题消失时三个黑框才一起退场；从这一刻开始进入纯动画演绎，不再让玩家操作。
     this.clearDuckQueenUltimateBlackframes({ immediate: false });
     player.slowUntil = -Infinity;
     player.slowMultiplier = 1;
@@ -15325,7 +14085,6 @@ export default class GameScene extends Phaser.Scene {
     player.isDashing = false;
     player.upgradeInvincible = true;
 
-    // dev14.19.0：把恐惧情绪留出时间。前半段明显放慢，越靠近刺穿节奏才开始加速。
     const frameDurations = [
       cfg.ultimateFrameReliefMs ?? 420,
       cfg.ultimateFrameNoticeMs ?? 460,
@@ -15337,12 +14096,14 @@ export default class GameScene extends Phaser.Scene {
     ];
     const totalCutsceneMs = frameDurations.reduce((sum, value) => sum + value, 0);
     player.stunnedUntil = Math.max(player.stunnedUntil ?? -Infinity, this.time.now + totalCutsceneMs + 2100);
-    player.setAlpha(0);
+    player.setVisible(true);
+    player.setAlpha(1);
 
     queen?.setVelocity?.(0, 0);
     queen?.applyVisualState?.('s3_dafamai');
     this.setDuckQueenDafamaiPlayerFrame('playerDafamaiReliefArt');
     this.setDuckQueenDafamaiGroundStage('queenDuckDafamaiGroundReliefArt');
+    this.setDuckQueenDafamaiCloseupFrame('playerDafamaiReliefArt', 0.08, { displayScale: 0.96 });
 
     const later = (delay, fn) => {
       const event = this.time.delayedCall(delay, () => {
@@ -15358,7 +14119,7 @@ export default class GameScene extends Phaser.Scene {
       this.duckQueenUltimateStage = 'cutscene_notice';
       this.setDuckQueenDafamaiPlayerFrame('playerDafamaiNoticeArt');
       this.setDuckQueenDafamaiGroundStage('queenDuckDafamaiGroundNoticeArt');
-      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiNoticeArt', 0.28);
+      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiNoticeArt', 0.28, { displayScale: 1.00 });
       this.cameras.main.shake(110, 0.0016);
     });
 
@@ -15367,7 +14128,7 @@ export default class GameScene extends Phaser.Scene {
       this.duckQueenUltimateStage = 'cutscene_panic_1';
       this.setDuckQueenDafamaiPlayerFrame('playerDafamaiPanic1Art');
       this.setDuckQueenDafamaiGroundStage('queenDuckDafamaiGroundPanic1Art');
-      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiPanic1Art', 0.52);
+      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiPanic1Art', 0.52, { displayScale: 1.02 });
       this.cameras.main.shake(150, 0.0024);
     });
 
@@ -15376,7 +14137,7 @@ export default class GameScene extends Phaser.Scene {
       this.duckQueenUltimateStage = 'cutscene_panic_2';
       this.setDuckQueenDafamaiPlayerFrame('playerDafamaiPanic2Art');
       this.setDuckQueenDafamaiGroundStage('queenDuckDafamaiGroundPanic2Art');
-      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiPanic2Art', 0.73);
+      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiPanic2Art', 0.73, { displayScale: 1.04 });
       this.cameras.main.shake(180, 0.0032);
     });
 
@@ -15385,17 +14146,16 @@ export default class GameScene extends Phaser.Scene {
       this.duckQueenUltimateStage = 'cutscene_trapped';
       this.setDuckQueenDafamaiPlayerFrame('playerDafamaiTrappedArt');
       this.setDuckQueenDafamaiGroundStage('queenDuckDafamaiGroundTrappedArt');
-      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiTrappedArt', 0.92);
+      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiTrappedArt', 0.92, { displayScale: 1.06 });
       this.cameras.main.shake(220, 0.0046);
     });
 
     at += frameDurations[4];
     later(at, () => {
       this.duckQueenUltimateStage = 'cutscene_impaled';
-      this.hideDuckQueenDafamaiCloseup(90);
       this.setDuckQueenDafamaiGroundStage('queenDuckDafamaiImpaleBaseArt', { impale: true, fadeMs: 105 });
       this.setDuckQueenDafamaiPlayerFrame('playerDafamaiImpaledArt');
-      // 台词故意延后到真正刺穿的一刻：前面的恐惧演出保持安静，背刺命中时才进行语言补刀。
+      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiImpaledArt', 1.00, { displayScale: 1.08 });
       this.showDuckQueenSkillLine(queen, 'dafa', { yOffset: 112, priority: 100, fontSize: 19 });
       this.cameras.main.shake(300, 0.018);
       this.cameras.main.flash(85, 255, 58, 145, false);
@@ -15407,15 +14167,18 @@ export default class GameScene extends Phaser.Scene {
     const hangingMs = frameDurations[6];
     later(hangingStartAt, () => {
       this.duckQueenUltimateStage = 'cutscene_hanging';
-      // 新 hanging PNG 去掉了地面水晶圈，主体在原画布里更紧。
-      // 单独轻微缩小，保持与上一帧同一镜头体积，避免切帧时看起来突然 push-in。
       this.setDuckQueenDafamaiPlayerFrame('playerDafamaiHangingArt', {
-        displayScale: cfg.ultimateHangingDisplayScale ?? 0.90
+        displayScale: cfg.ultimateHangingDisplayScale ?? 1.15
       });
+      this.setDuckQueenDafamaiCloseupFrame('playerDafamaiHangingArt', 1.00, { displayScale: 1.20 });
     });
 
-    // 紫蟑螂链爆放进原本 1 秒的挂起停顿后半段，作为外围背景事件；
-    // 不再额外插入 380ms，也不改变中央爆炸原来的起爆时点。
+    const closeupExitLeadMs = 160;
+    const closeupFadeMs = 120;
+    later(hangingStartAt + Math.max(0, hangingMs - closeupExitLeadMs), () => {
+      this.hideDuckQueenDafamaiCloseup(closeupFadeMs);
+    });
+
     const roachChainMs = cfg.ultimateRoachChainExplosionMs ?? 380;
     const roachLeadMs = Phaser.Math.Clamp(roachChainMs, 0, Math.max(0, hangingMs));
     const roachChainAt = hangingStartAt + Math.max(0, hangingMs - roachLeadMs);
@@ -15428,6 +14191,53 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
+  spawnDuckQueenDafamaiRedParticles(x, y) {
+    const count = 34;
+    for (let i = 0; i < count; i += 1) {
+      const radius = Phaser.Math.Between(6, 15);
+      const particle = this.trackDuckQueenUltimateFx(
+        this.add.circle(
+          x + Phaser.Math.Between(-16, 16),
+          y + Phaser.Math.Between(-18, 18),
+          radius,
+          Phaser.Utils.Array.GetRandom([0xff355e, 0xff4d6d, 0xff6b7d, 0xff1f4d])
+        )
+          .setDepth(92 + (i % 3))
+          .setAlpha(Phaser.Math.FloatBetween(0.45, 0.9))
+      );
+      const angle = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+      const distance = Phaser.Math.Between(86, 220);
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance * 0.72 - Phaser.Math.Between(10, 38);
+      this.tweens.add({
+        targets: particle,
+        x: particle.x + dx,
+        y: particle.y + dy,
+        alpha: 0,
+        scaleX: Phaser.Math.FloatBetween(0.25, 0.65),
+        scaleY: Phaser.Math.FloatBetween(0.25, 0.65),
+        duration: Phaser.Math.Between(340, 620),
+        ease: 'Quad.Out',
+        onComplete: () => particle?.active && particle.destroy()
+      });
+    }
+
+    const haze = this.trackDuckQueenUltimateFx(
+      this.add.rectangle(x, y + 10, 300, 220, 0xff3355, 0.18)
+        .setDepth(89)
+        .setBlendMode(Phaser.BlendModes.ADD)
+    );
+    this.tweens.add({
+      targets: haze,
+      alpha: 0,
+      scaleX: 1.55,
+      scaleY: 1.30,
+      duration: 340,
+      ease: 'Quad.Out',
+      onComplete: () => haze?.active && haze.destroy()
+    });
+  }
+
   playDuckQueenDafamaiExplosion(queen) {
     if (!this.duckQueenUltimateActive || !this.player?.active) return false;
     this.duckQueenUltimateStage = 'explosion';
@@ -15436,14 +14246,32 @@ export default class GameScene extends Phaser.Scene {
     const x = this.duckQueenUltimateAnchorX ?? player.x;
     const y = this.duckQueenUltimateAnchorY ?? player.y;
 
-    // 演出期间屏蔽其它敌人的伤害；大发卖自己的终爆在这里单独结算一次。
+    this.hideDuckQueenDafamaiCloseup(90);
+    if (this.duckQueenUltimateGroundActor?.active) {
+      this.tweens.killTweensOf(this.duckQueenUltimateGroundActor);
+      this.tweens.add({
+        targets: this.duckQueenUltimateGroundActor,
+        alpha: 0,
+        duration: 120,
+        ease: 'Quad.Out',
+        onComplete: () => {
+          if (this.duckQueenUltimateGroundActor?.active) this.duckQueenUltimateGroundActor.destroy();
+          this.duckQueenUltimateGroundActor = null;
+        }
+      });
+    }
+
     const savedUpgradeInvincible = player.upgradeInvincible;
     player.upgradeInvincible = false;
     const damage = player.takeUnavoidableCurrentHpRatioDamage?.(
       cfg.ultimateDamageCurrentHpRatio ?? 0.55
     ) ?? 0;
     player.upgradeInvincible = savedUpgradeInvincible;
+    player.setVisible(false);
     player.setAlpha(0);
+
+    this.cameras.main.flash(140, 255, 92, 180, false);
+    this.spawnDuckQueenDafamaiRedParticles(x, y + 4);
 
     if (damage > 0) {
       this.showHpDamageText('duckQueen', x, y - 64, damage, {
@@ -15525,7 +14353,6 @@ export default class GameScene extends Phaser.Scene {
           if (!flash?.active) return;
           const hold = this.time.delayedCall(flashHold, () => {
             if (!flash?.active) return;
-            // 白光吞满屏幕后再让挂刺角色退场，避免人物凭空消失。
             if (this.duckQueenUltimatePlayerActor?.active) {
               this.duckQueenUltimatePlayerActor.setAlpha(0);
             }
@@ -15557,7 +14384,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  startDuckQueenUltimate(queen, { debugForced = false } = {}) {
+  startDuckQueenUltimate(queen) {
     if (
       !queen?.active
       || queen.isDead
@@ -15565,7 +14392,6 @@ export default class GameScene extends Phaser.Scene {
       || this.duckQueenUltimateActive
     ) return false;
 
-    // 正式结构：打黑框 ×3（仍可操作）→ 大发卖标题 → 标题/黑框退场 → PNG 地裂由外向内持续填充 + 左侧恐惧特写 → 刺穿 → 挂刺 → 爆炸。
     if (this.duckQueenFishNetActive) this.endDuckQueenFishNet(false);
     if (this.duckQueenGrappleActive) this.endDuckQueenGrapple(false);
     this.clearDuckQueenCharmSpell?.();
@@ -15577,9 +14403,7 @@ export default class GameScene extends Phaser.Scene {
     this.clearDuckQueenUltimate({ restoreQueen: false, applyCooldown: false });
     this.duckQueenUltimateActive = true;
     this.duckQueenUltimateStage = 'blackframe_1';
-    this.duckQueenDebugUltimatePreviewActive = debugForced;
     this.duckQueenUltimateEvents = [];
-    this.duckQueenDebugUltimateEvents = this.duckQueenUltimateEvents;
     this.duckQueenUltimateBlackframes = [];
     queen.resetMajorActionScheduler?.(this.time.now, ENEMIES.duckQueen.ultimatePostRecoveryMs ?? 4500);
     queen.setVelocity(0, 0);
@@ -15622,135 +14446,6 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
-  debugClearDuckQueenStates({ quiet = false } = {}) {
-    const queen = this.duckQueen;
-    this.clearDuckQueenUltimate({ restoreQueen: false, applyCooldown: false });
-    if (this.duckQueenFishNetActive) this.endDuckQueenFishNet(false);
-    if (this.duckQueenGrappleActive) this.endDuckQueenGrapple(false);
-    this.clearDuckQueenCharmSpell?.();
-    this.clearDuckQueenCharmMark?.();
-    this.clearDuckQueenCharmControlHint?.();
-    this.duckQueenCharmUntil = -Infinity;
-    this.duckQueenDazeUntil = -Infinity;
-
-    if (this.player?.active) {
-      this.player.stunnedUntil = -Infinity;
-      this.player.pullTarget = null;
-      this.player.pullUntil = -Infinity;
-      this.player.pullStrength = 0;
-      this.player.slowUntil = -Infinity;
-      this.player.slowMultiplier = 1;
-      this.player.setVelocity(0, 0);
-      if (
-        ['playerDuckQueenDrainArt', 'playerFishNetCaughtArt', 'playerFishNetPullArt'].includes(this.player.texture?.key)
-      ) {
-        this.player.applyPlayerVisualTexture?.('playerArt');
-        this.player.restoreXiafanVisualDisplaySize?.();
-        this.player.clearXiafanVisualDisplaySizeLock?.();
-      }
-    }
-
-    if (queen?.active && !queen.isDead) {
-      queen.resetMajorActionScheduler?.(this.time.now, 0);
-      queen.candyCastUntil = -Infinity;
-      queen.tangerineCastUntil = -Infinity;
-      queen.charmCastUntil = -Infinity;
-      queen.stickDashUntil = -Infinity;
-      queen.attachAttemptUntil = -Infinity;
-      queen.resumeRoamingState?.(this.time.now);
-    }
-
-    if (!quiet) this.showScreenNotice('「丹麦鸭测试状态已清除」', '#a9f7c5');
-    return true;
-  }
-
-  debugTriggerDuckQueenUltimate() {
-    const queen = this.ensureDuckQueenForDebug();
-    if (!queen) return false;
-    if (queen.getPhase?.() !== 'frenzy') this.setDuckQueenDebugPhase('frenzy');
-    this.debugClearDuckQueenStates({ quiet: true });
-    const ok = this.startDuckQueenUltimate(queen, { debugForced: true });
-    if (!ok) this.showScreenNotice('「终极技当前不可发动」', '#ffb6d7');
-    return ok;
-  }
-
-  // Compatibility for dev14.16.0 callers: the old preview button now runs the real mechanic.
-  debugPreviewDuckQueenUltimate() {
-    return this.debugTriggerDuckQueenUltimate();
-  }
-
-  updateDuckQueenDebugPanel(time = this.time.now) {
-    const panel = this.duckQueenDebugPanel;
-    if (!panel?.visible || !this.duckQueenDebugInfoText) return;
-
-    const commander = this.potatoCommander;
-    if (!commander?.active || commander.isDead) {
-      this.duckQueenDebugInfoText.setText([
-        `Boss: 未召唤  Inv:${this.player?.debugInvincible ? 'ON' : 'OFF'}  CD:${this.duckQueenDebugIgnoreCooldown ? 'OFF' : 'ON'}`,
-        '阶段 / 技能按钮会自动召唤土豆指挥官。'
-      ]);
-      return;
-    }
-
-    const phaseLabels = [
-      '1 童年回忆',
-      '2 事必躬亲',
-      '3 圣光普照',
-      '4 神恩归一'
-    ];
-    const remain = (until) => Number.isFinite(until)
-      ? `${Math.max(0, until - time) / 1000}`.replace(/(\.\d).*/, '$1') + 's'
-      : '0.0s';
-    const ready = commander.specialSkillReadyAt ?? {};
-    const potatoCount = this.getActiveCommanderPotatoCount?.() ?? 0;
-    const requiredJudgment = ENEMIES.potatoCommander.judgmentGraceCastsRequired ?? 3;
-
-    let state = 'ROAM';
-    if (this.commanderBlackwaterPreviewActive) state = '下黑水预览';
-    else if (this.commanderJudgmentActive) state = '下黑水';
-    else if (this.commanderSkySmashActive) state = '下场';
-    else if (this.commanderLikeAttackActive) state = '点赞';
-    else if (time < (commander.actionLockedUntil ?? -Infinity)) state = '技能演出';
-
-    this.duckQueenDebugInfoText.setText([
-      `${phaseLabels[Phaser.Math.Clamp(commander.phaseIndex ?? 0, 0, 3)]}  HP:${Math.round(commander.getTotalVitality?.() ?? 0)}/${Math.round(commander.getTotalMaxVitality?.() ?? 0)}`,
-      `State:${state}  Potato:${potatoCount}  Shield:${Math.round(commander.graceShieldHp ?? 0)}`,
-      `下黑水:${commander.judgmentGraceCount ?? 0}/${requiredJudgment}${commander.judgmentPending ? ' READY' : ''}`,
-      `CD 抱团:${remain(ready.group)} 下场:${remain(ready.smash)} 点赞:${remain(ready.like)}`,
-      `CD 团魂:${remain(ready.holy)} 独美:${remain(ready.cleanse)} 圣恩:${remain(ready.absorb)}`
-    ]);
-  }
-
-  setDuckQueenDebugPhase(phase) {
-    const queen = this.duckQueen;
-    if (!queen?.active || queen.isDead) {
-      this.showScreenNotice('「请先按 B 召唤丹麦鸭」', '#ffb6d7');
-      return;
-    }
-
-    const labels = {
-      gentle: '天降青梅',
-      obsessed: '真心相待',
-      frenzy: '听夜入梦'
-    };
-
-    // Debug phase switch must behave like a clean state transition, not just swap a texture.
-    // Cancel any active grapple/net/ultimate first; otherwise scene-level flags can keep AI locked.
-    if (this.duckQueenUltimateActive) this.clearDuckQueenUltimate({ restoreQueen: false });
-    if (this.duckQueenFishNetActive) this.endDuckQueenFishNet(false);
-    if (this.duckQueenGrappleActive) this.endDuckQueenGrapple(false);
-    this.clearDuckQueenCharmSpell?.();
-    this.clearDuckQueenCharmMark?.();
-    this.clearDuckQueenCharmControlHint?.();
-    this.duckQueenCharmUntil = -Infinity;
-
-    queen.forceDebugPhase?.(phase, this.time.now);
-
-    this.duckQueenAuraActive = phase !== 'gentle';
-    this.updateBossHud();
-    this.showScreenNotice(`「测试切换：${labels[phase]}」`, '#ffd0e6');
-  }
-
   onDuckQueenSpawned(queen) {
     this.duckQueen = queen;
     this.playerOccludedByDuckQueen = false;
@@ -15768,31 +14463,30 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenAttachStartedAt = -Infinity;
     this.nextDuckQueenDrainAt = this.time.now;
 
-    // 女王鸭登场提示与阶段名统一走重要文字队列，避免重叠。
-    this.showBossImportantWorldText(
-      queen,
-      '「👑 丹麦鸭出现！」',
-      '#ffd0e6',
-      24,
-      1800
-    );
+    {
+      this.showBossImportantWorldText(
+        queen,
+        '「👑 丹麦鸭出现！」',
+        '#ffd0e6',
+        24,
+        1800
+      );
 
-    this.queueBossPhaseText(
-      queen,
-      '「天降青梅」',
-      '#ffd1e5',
-      19,
-      2300
-    );
+      this.queueBossPhaseText(
+        queen,
+        '「天降青梅」',
+        '#ffd1e5',
+        19,
+        2300
+      );
 
-    this.createBossHud('「丹麦鸭 · 天降青梅」');
+      this.createBossHud('「丹麦鸭 · 天降青梅」');
+    }
   }
 
   onDuckQueenDefeated(x, y) {
     this.clearDuckQueenUltimate?.({ restoreQueen: false, applyCooldown: false });
     this.bossActive = false;
-    // dev14.20.13：最终 Ending 的胜利曲需要从 0.000s 精确起播，不能再经过
-    // AdaptiveMusic 的 120 BPM 网格量化，否则 3.000s 响指锚点会漂移。
     this.duckQueenAttached = false;
     this.duckQueenGrappleActive = false;
     if (this.duckQueenFishNetActive) this.endDuckQueenFishNet(false);
@@ -15819,8 +14513,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenDafaReactionUntil = -Infinity;
     this.clearBossHud();
 
-    // 丹麦鸭战后奖励：主角立即回满 HP；「月之守卫」等 Ending 完整结束、
-    // 战斗恢复到正常节奏后才真正解锁并给出文字提示。
     if (this.player?.active) this.player.hp = this.player.maxHp;
     this.playerOrbitCrescentPendingUnlock = true;
 
@@ -15886,11 +14578,6 @@ export default class GameScene extends Phaser.Scene {
       });
     };
 
-    // Ending 隐藏暗月本体时必须把独立的蓝色轮廓层一起隐藏。
-    // playerOutline 是单独的 Sprite，不属于 player 本体；之前只 capture(this.player)
-    // 会留下一个淡蓝/黑色人形，看起来像“主角只剩影子”。
-    // Ending 中保留场景里的暗月本体可见；只隐藏独立 outline / Aura，避免残影。
-    // 暗月本体会在 victory cut-in 换帧时同步切换到对应胜利姿势。
     this.clearPlayerAuraTransientFx();
     capture(this.playerAuraBlueGlow);
     capture(this.playerAuraRedGlow);
@@ -15940,10 +14627,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getDuckQueenVictoryEndingPlayerVisualMetrics(textureKey = this.player?.texture?.key) {
-    // dev14.20.10：场景主角必须沿用 gameplay 的“实际可见体型”，而不是简单把
-    // victory PNG 画布写死成 60px。player_idle.png 的正式 gameplay 画布为 128x128，
-    // 非透明可见范围是 x=17..110 / y=5..120（94x116）。
-    // Victory 6 帧都是 1254x1254，但每张透明边距不同；统一 60px 画布会导致肉眼大小跳动。
     const boundsByTexture = {
       playerArt: { sourceW: 128, sourceH: 128, left: 17, top: 5, right: 111, bottom: 121 },
       playerVictoryEnding01: { sourceW: 1254, sourceH: 1254, left: 223, top: 32, right: 1175, bottom: 1224 },
@@ -15959,7 +14642,6 @@ export default class GameScene extends Phaser.Scene {
     const snap = this.duckQueenVictoryEndingPlayerSnapshot;
     const gameplayCanvasH = Math.max(1, Math.abs(Number(snap?.displayHeight) || 60));
 
-    // 以正常 gameplay 母版的“可见人物高度”作为唯一比例基准。
     const gameplayVisibleH = gameplayCanvasH * (116 / 128);
     const visiblePixelH = Math.max(1, bounds.bottom - bounds.top);
     const scale = gameplayVisibleH / visiblePixelH;
@@ -15986,8 +14668,6 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(Math.max(12, player.depth ?? 10))
       .clearTint();
 
-    // 不再为 Ending 发明另一套人物尺寸。每一张 victory pose 都先按 alpha 可见边界
-    // 归一化到正式 gameplay 暗月的实际可见高度，再按当前 pose 的真实脚底落地。
     const metrics = this.getDuckQueenVictoryEndingPlayerVisualMetrics(resolvedKey);
     const groundY = this.duckQueenVictoryEndingPlayerGroundY;
 
@@ -16002,7 +14682,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   hideDuckQueenVictoryEndingBeatIndicators() {
-    // Ending 是独立结算演出：脚下 Beat 光圈全部熄灭，不参与胜利 pose。
     this.ensureBeatIndicator();
     if (!this.duckQueenVictoryEndingBeatSnapshot) {
       this.duckQueenVictoryEndingBeatSnapshot = {
@@ -16030,7 +14709,6 @@ export default class GameScene extends Phaser.Scene {
       const saved = index === 0 ? snapshot?.strong : snapshot?.weak;
       image.setVisible(saved?.visible ?? true);
     });
-    // 回到 gameplay 后立即用正式玩法逻辑刷新位置、大小和当前节拍 alpha。
     this.updateBeatIndicator(this.adaptiveMusic?.getClockMs?.());
   }
 
@@ -16047,9 +14725,6 @@ export default class GameScene extends Phaser.Scene {
   syncDuckQueenVictoryEndingPlayerGroundVfx() {
     if (!this.duckQueenVictoryEndingActive || !this.player?.active) return;
 
-    // Ending 会暂停 GameScene.update()，所以这里完整复用 gameplay Beat Hint 的
-    // 尺寸 / alpha / 音乐相位公式，只把位置锚定到当前 world player 的真实脚底。
-    // 这样 Ending 不再出现“人物是一套尺寸、光圈又是另一套尺寸”的错觉。
     this.ensureBeatIndicator();
     const feet = this.getDuckQueenVictoryEndingPlayerFeet();
     const rawClock = this.adaptiveMusic?.getClockMs?.();
@@ -16108,8 +14783,6 @@ export default class GameScene extends Phaser.Scene {
   stopDuckQueenVictoryEndingPlayerGroundVfxSync() {
     this.duckQueenVictoryEndingGroundVfxSyncEvent?.remove?.(false);
     this.duckQueenVictoryEndingGroundVfxSyncEvent = null;
-    // Do not discard the saved beat-ring state here. The post-Ending gameplay
-    // restore path still needs it to put the normal rhythm hint back exactly.
   }
 
   restoreDuckQueenVictoryEndingPlayerVisual() {
@@ -16154,15 +14827,12 @@ export default class GameScene extends Phaser.Scene {
   setDuckQueenVictoryEndingCutinFrame(textureKey, { enter = false } = {}) {
     if (!(this.duckQueenVictoryEndingActive || this.potatoCommanderEndingActive)) return null;
 
-    // dev14.20.6：胜利特写必须是“屏幕层”，不能依赖战斗层里被隐藏的 player。
-    // 如果某张素材意外没有注册，明确回退到第 1 帧，而不是静默 return 导致整段没有主角。
     let resolvedKey = textureKey;
     if (!this.textures.exists(resolvedKey)) {
       console.warn(`[DuckQueenEnding] missing cut-in texture: ${resolvedKey}`);
       resolvedKey = this.textures.exists('playerVictoryEnding01') ? 'playerVictoryEnding01' : 'playerIdle';
     }
 
-    // 主 Camera 在 cut-in 前已经回到 1x。固定使用左侧安全框，整个人从发顶到靴子都必须可见。
     const displayH = Math.min(455, GAME.HEIGHT - 64);
     const bottomY = GAME.HEIGHT - 14;
 
@@ -16201,7 +14871,6 @@ export default class GameScene extends Phaser.Scene {
     const sourceW = Math.max(1, actor.frame?.realWidth ?? actor.width ?? 1);
     const sourceH = Math.max(1, actor.frame?.realHeight ?? actor.height ?? 1);
     const displayW = displayH * (sourceW / sourceH);
-    // 左侧完整显示，同时给响指火花预留 28px 安全边距。
     const targetX = Math.max(displayW / 2 + 32, 245);
     actor.setDisplaySize(displayW, displayH);
 
@@ -16226,7 +14895,6 @@ export default class GameScene extends Phaser.Scene {
         ease: 'Cubic.Out'
       });
     } else {
-      // 六帧都在同一屏幕坐标上换图，绝不重新套用战斗 Camera 的世界坐标。
       actor.setPosition(targetX, bottomY).setAlpha(1).setVisible(true);
     }
 
@@ -16240,7 +14908,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 同一帧同步到游戏场景里的暗月本体：左侧是特写，世界里仍能看到暗月本人。
     this.setDuckQueenVictoryEndingPlayerWorldFrame(resolvedKey);
     return actor;
   }
@@ -16315,9 +14982,6 @@ export default class GameScene extends Phaser.Scene {
   spawnDuckQueenVictoryEndingCrowd(x, y) {
     if (!this.duckQueenVictoryEndingActive) return [];
 
-    // dev14.21.8.2：Ending 群众不再按中心圆环排布。
-    // 在黑场峰值时直接按战斗镜头矩形区域随机落地；亮屏时它们已经自然分散在场上。
-    // 演出对象仍不加入 enemies / Physics，不攻击、不繁殖、不掉落。
     this.duckQueenVictoryEndingCrowd.forEach((actor) => {
       if (actor?.active) {
         this.tweens.killTweensOf(actor);
@@ -16336,7 +15000,6 @@ export default class GameScene extends Phaser.Scene {
     const maxY = Phaser.Math.Clamp(y + halfHeight, 42, GAME.WORLD_HEIGHT - 42);
     const positions = [];
 
-    // 20 Duck + 40 Roach，先打乱类型，再随机位置，避免出现任何按序/放射状图案。
     const crowdTypes = Phaser.Utils.Array.Shuffle([
       ...Array(20).fill('duck'),
       ...Array(40).fill('roach')
@@ -16349,10 +15012,8 @@ export default class GameScene extends Phaser.Scene {
         const py = Phaser.Math.Between(Math.round(minY), Math.round(maxY));
         fallback = { x: px, y: py };
 
-        // 中央给丹麦鸭和主角留一点构图空间；不是圆环，只是不让怪直接盖脸。
         if (Math.abs(px - x) < 104 && Math.abs(py - y) < 76) continue;
 
-        // 只做很轻的防重叠，仍保留普通战斗里略显杂乱的群聚感。
         const tooClose = positions.some((pos) => (
           Phaser.Math.Distance.Between(px, py, pos.x, pos.y) < 27
         ));
@@ -16368,7 +15029,6 @@ export default class GameScene extends Phaser.Scene {
       const pos = pickGroundedPosition();
       positions.push(pos);
 
-      // 与正常战斗尺寸保持一致：Duck=58/128，Roach=46/128。
       const actor = this.trackDuckQueenVictoryEndingFx(
         this.add.image(pos.x, pos.y, textureKey)
           .setDepth(6)
@@ -16379,11 +15039,9 @@ export default class GameScene extends Phaser.Scene {
       actor.setData('endingCrowdIndex', i);
 
       if (isDuck) {
-        // 鸭子保持普通战斗式的轻微朝向差异，不围绕任何中心。
         actor.setAngle(Phaser.Math.FloatBetween(-4.5, 4.5));
         actor.setFlipX(Phaser.Math.Between(0, 1) === 1);
       } else {
-        // 蟑螂使用随机战斗朝向，不再统一朝向 Ending 圆心。
         actor.setRotation(Phaser.Math.FloatBetween(-Math.PI, Math.PI));
       }
 
@@ -16403,13 +15061,10 @@ export default class GameScene extends Phaser.Scene {
     if (!crowd.length) return false;
     this.duckQueenVictoryEndingCrowdExploded = true;
 
-    // dev14.21.8.2：从《淡季》2.0s 起进入随机连锁爆炸。
-    // 顺序先打乱，再给每只怪不同延迟；仍完全复用普通战斗血浆 + 死亡 PNG。
     const shuffled = Phaser.Utils.Array.Shuffle([...crowd]);
     let latestDelay = 0;
 
     shuffled.forEach((actor, index) => {
-      // 约 0~2 秒内陆续爆开。基础错峰避免 60 只同一帧死亡，随机抖动保持不可预测。
       const delay = index * Phaser.Math.Between(17, 25) + Phaser.Math.Between(0, 620);
       latestDelay = Math.max(latestDelay, delay);
 
@@ -16477,8 +15132,6 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Sine.Out'
     });
 
-    // dev14.20.18：磁带入场再利落一点。
-    // 保留轻微悬停，但整体明显更快，不再像慢慢飘出来。
     this.scheduleDuckQueenVictoryEnding(260, () => {
       if (!tape?.active || !label?.active) return;
       this.tweens.add({
@@ -16491,9 +15144,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // dev14.20.13：最终《淡季》文件自身已经包含“放入磁带”的声音。
-    // 磁带画面出现的同一刻，从音频 0:00 原样播放；不再叠加程序生成的咔擦 / hiss，
-    // 也不再额外延迟或做前置淡入。
     this.startDuckQueenVictoryDanjiMusic();
   }
 
@@ -16511,8 +15161,6 @@ export default class GameScene extends Phaser.Scene {
       try { sound.destroy?.(); } catch (_) {}
       this.duckQueenVictoryEndingVictoryAudio = null;
 
-      // dev14.20.17：前段胜利音乐一结束，磁带立刻出现。
-      // 不再人为额外留白，保证《淡季》紧接前段音乐进入。
       if (this.duckQueenVictoryEndingActive && !this.duckQueenVictoryEndingCassette?.active) {
         const anchorX = this.duckQueenVictoryEndingAnchorX ?? 0;
         const anchorY = this.duckQueenVictoryEndingAnchorY ?? 0;
@@ -16543,8 +15191,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenVictoryEndingAudio = { sound, fadeTween: null };
     sound.play();
 
-    // dev14.21.8.2：《淡季》从 0:00 起播；到 2.0s 时开始随机连锁爆炸，
-    // 40 紫蟑螂 + 20 鸭子不会再同一帧同时死亡。
     this.scheduleDuckQueenVictoryEnding(2000, () => {
       if (this.duckQueenVictoryEndingAudio?.sound !== sound) return;
       this.explodeDuckQueenVictoryEndingCrowd();
@@ -16565,9 +15211,6 @@ export default class GameScene extends Phaser.Scene {
   restoreDuckQueenVictoryEndingToGameplay(fade) {
     if (!this.duckQueenVictoryEndingActive) return false;
 
-    // Keep the viewport fully black while every gameplay layer is restored.
-    // This is the original post-Danji continuation path, re-enabled for the
-    // Potato Commander chapter so no restore pop is visible to the player.
     if (fade?.active) {
       this.tweens.killTweensOf(fade);
       fade.setVisible(true).setAlpha(1);
@@ -16580,8 +15223,6 @@ export default class GameScene extends Phaser.Scene {
     this.stopDuckQueenVictoryMusic();
     this.stopDuckQueenVictoryEndingAudio();
 
-    // Remove only the cinematic layer. The black fade is kept until the real
-    // battlefield, camera, HUD and player have all been restored underneath it.
     this.duckQueenVictoryEndingFx
       .filter((obj) => obj !== fade)
       .forEach((obj) => {
@@ -16602,7 +15243,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenVictoryEndingCrowdExploded = false;
     this.duckQueenVictoryEndingPlayerGroundY = null;
 
-    // Restore the exact pre-Ending gameplay state while still behind black.
     this.restoreDuckQueenVictoryEndingPlayerVisual();
     this.restoreDuckQueenVictoryEndingCombatLayer();
     this.restoreDuckQueenVictoryEndingBeatIndicators();
@@ -16618,9 +15258,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.physics.world.resume();
 
-    // The Ending pauses the adaptive 120-BPM clock. Resume that same clock, then
-    // explicitly return to the normal combo track rather than reviving a stale
-    // pre-boss state.
     this.adaptiveMusic?.resume?.();
     this.adaptiveMusic?.switchNow?.('combo', { fadeMs: 220 });
 
@@ -16628,7 +15265,6 @@ export default class GameScene extends Phaser.Scene {
     this.endingSequenceActive = false;
     this.victoryElapsedSeconds = null;
 
-    // 正常战斗节奏恢复后再给予永久被动「月之守卫」，避免技能提示被 Ending 吞掉。
     if (this.playerOrbitCrescentPendingUnlock) {
       this.time.delayedCall(360, () => {
         if (this.finished || this.endingSequenceActive) return;
@@ -16638,8 +15274,6 @@ export default class GameScene extends Phaser.Scene {
       this.ensurePlayerOrbitCrescent();
     }
 
-    // HUD fades back after gameplay is already live; the full-screen black layer
-    // fades a little slower so the continuation feels intentional rather than a cut.
     this.restoreDuckQueenVictoryEndingHud({ delay: 120, duration: 300 });
 
     if (fade?.active) {
@@ -16665,7 +15299,7 @@ export default class GameScene extends Phaser.Scene {
     return true;
   }
 
-  showInternalTestToBeContinued(fade) {
+  showToBeContinued(fade) {
     const tbc = this.add.text(
       GAME.WIDTH / 2,
       GAME.HEIGHT / 2,
@@ -16717,11 +15351,6 @@ export default class GameScene extends Phaser.Scene {
     this.duckQueenVictoryEndingAnchorX = x;
     this.duckQueenVictoryEndingAnchorY = y;
 
-    // dev14.21.8.5.2：胜利结算音乐继续使用用户提供的 0927 片段（约 8.647s）。
-    // Internal Test v1.0 入场转场：1.5s 渐黑 → 2.0s 渐亮；胜利音乐仍在亮屏完全结束后从 0:00 起播，
-    // 这样现有 6 张 victory pose 仍可完整露出并保持原有强拍卡点。
-    // 选中的音乐内 cue（ms）：58 / 2038 / 3587 / 4946 / 6037 / 7558；
-    // 最后 8429ms 的强拍交给丹麦鸭消散闪光，音乐自然结束后磁带立即出现。
     const endingBlackoutMs = 1500;
     const endingBrightenMs = 2000;
     const victoryMusicStartAt = endingBlackoutMs + endingBrightenMs;
@@ -16745,13 +15374,9 @@ export default class GameScene extends Phaser.Scene {
     this.player?.setVelocity?.(0, 0);
     this.cameras.main.stopFollow();
 
-    // dev14.21.8.4：入场黑屏不再用世界坐标 Rectangle 假装 Camera fade。
-    // DEBUG / 正式 Ending 都直接走 Phaser Camera fade，确保无论 Camera scroll / zoom / UI depth
-    // 如何变化，整张 viewport 都会真实经历 1.5s 渐黑 → 黑场换景 → 2s 渐亮。
     const endingCamera = this.cameras.main;
     endingCamera.resetFX?.();
 
-    // 这个透明矩形只保留给 Ending 尾声的既有收黑逻辑；入场阶段不再依赖它。
     const fade = this.trackDuckQueenVictoryEndingFx(
       this.add.rectangle(0, 0, GAME.WIDTH, GAME.HEIGHT, 0x000000, 0)
         .setOrigin(0)
@@ -16779,13 +15404,11 @@ export default class GameScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(86).setAlpha(0)
     );
 
-    // DEBUG 与正式流程共用同一条 Camera 转场：Camera 真正全黑以后才允许换景。
     let endingBlackScenePrepared = false;
     const prepareEndingSceneInBlack = () => {
       if (endingBlackScenePrepared || !this.duckQueenVictoryEndingActive) return;
       endingBlackScenePrepared = true;
 
-      // queen defeat art: center=y+18, displayH=220, visible bottom at texture bottom => ground≈y+128.
       this.duckQueenVictoryEndingPlayerGroundY = y + 128;
       if (this.player?.active) {
         const snap = this.duckQueenVictoryEndingPlayerSnapshot;
@@ -16818,18 +15441,11 @@ export default class GameScene extends Phaser.Scene {
         ease: 'Sine.Out'
       });
 
-      // 60 只 Ending 群众只在纯黑画面里创建；开始亮屏时它们已经在正确位置。
       this.spawnDuckQueenVictoryEndingCrowd(x, y);
 
-      // Camera 当前保持全黑，从这里开始真实的 2 秒渐亮。
-      // Phaser 3.90 Camera.fadeIn signature is (duration, r, g, b, callback, context).
-      // Do not pass a boolean force flag here: fadeIn is already the forced variant.
       endingCamera.fadeIn(endingBrightenMs, 0, 0, 0);
     };
 
-    // Phaser 3.90 Camera.fadeOut signature is (duration, r, g, b, callback, context).
-    // Passing `true` in slot 5 made Phaser store a boolean as Fade._onUpdate,
-    // which caused `this._onUpdate.call is not a function` on the first fade frame.
     endingCamera.fadeOut(
       endingBlackoutMs,
       0,
@@ -16841,7 +15457,6 @@ export default class GameScene extends Phaser.Scene {
       this
     );
 
-    // 极端情况下浏览器丢失 Camera fade complete callback 时的保险路径。
     this.scheduleDuckQueenVictoryEnding(endingBlackoutMs + 40, () => {
       prepareEndingSceneInBlack();
     });
@@ -16851,22 +15466,17 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: line, alpha: 0, duration: 160, ease: 'Sine.In' });
     });
 
-    // 亮屏完成时 Camera 收回 1x；DEBUG Ending 与正式流程保持一致。
     this.scheduleDuckQueenVictoryEnding(victoryMusicStartAt, () => {
       this.cameras.main.zoomTo(1, 100, 'Sine.easeInOut', false);
     });
 
-    // 新 0927 胜利音频：保留现有 6 帧，只重新卡强拍。
-    // Frame 01：第一下开场强拍，人物特写入场。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(58), () => {
       this.setDuckQueenVictoryEndingCutinFrame('playerVictoryEnding01', { enter: true });
     });
-    // Frame 02：第二个明显重拍，闭眼确认。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(2038), () => {
       this.setDuckQueenVictoryEndingCutinFrame('playerVictoryEnding02');
     });
 
-    // 3.0s 左右先给闭眼帧一个很轻的蓄力，再在 3.587s 重拍上切响指。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(2955), () => {
       const actor = this.duckQueenVictoryEndingCutinActor;
       if (!actor?.active) return;
@@ -16883,27 +15493,22 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // Frame 03：3.587s 强拍，响指。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(3587), () => {
       this.setDuckQueenVictoryEndingCutinFrame('playerVictoryEnding03');
       this.sound?.play?.('hitLight', { volume: 0.16 });
       this.cameras.main.flash(55, 255, 240, 184, false);
     });
-    // Frame 04：4.946s 强拍，邪笑。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(4946), () => {
       this.setDuckQueenVictoryEndingCutinFrame('playerVictoryEnding04');
     });
-    // Frame 05：6.037s 最强一拍附近，舒展。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(6037), () => {
       this.setDuckQueenVictoryEndingCutinFrame('playerVictoryEnding05');
     });
-    // Frame 06：7.558s 后段强拍，最终定格。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(7558), () => {
       this.setDuckQueenVictoryEndingCutinFrame('playerVictoryEnding06');
       this.cameras.main.flash(55, 255, 238, 178, false);
     });
 
-    // 最终帧停留约 0.44s 后滑出，把视线交回败北丹麦鸭。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(8000), () => {
       this.hideDuckQueenVictoryEndingCutin({ slideRight: true, duration: 220 });
     });
@@ -16933,18 +15538,12 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // 8.429s 是音频收尾前最后一个明显重拍：只给金色闪光 / 轻震，
-    // 随后让音频 complete 回调无缝接入磁带与《淡季》。
     this.scheduleDuckQueenVictoryEnding(victoryCueAt(8429), () => {
       this.cameras.main.flash(75, 255, 220, 120, false);
       this.cameras.main.shake(80, 0.0020, false);
     });
 
-    // dev14.20.17：磁带不再按固定毫秒数延后调度。
-    // 当前段胜利音乐自然结束时，会由音频 complete 回调立刻触发磁带出现。
 
-    // 新胜利音乐更长，Ending 尾声按两段音频的实际长度重新推后。
-    // 《淡季》结束前约 0.83s 开始收黑。
     this.scheduleDuckQueenVictoryEnding(endingTailFadeAt, () => {
       this.tweens.killTweensOf(fade);
       this.tweens.add({
@@ -16955,9 +15554,6 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // v1.0.6：土豆指挥官章节重新开放。
-    // 《淡季》收黑后，在黑场内恢复原战场 / HUD / Camera / Physics，再继续计时到 09:00。
-    // 如果未来再次关闭 Potato release flag，则仍可回退到原来的 TBC 内测结算路径。
     this.scheduleDuckQueenVictoryEnding(endingFinishAt, () => {
       if (RELEASE.POTATO_COMMANDER_PUBLISHED) {
         this.restoreDuckQueenVictoryEndingToGameplay(fade);
@@ -16989,7 +15585,7 @@ export default class GameScene extends Phaser.Scene {
       this.cameras.main.setZoom(1);
 
       if (fade?.active) fade.setAlpha(1);
-      this.showInternalTestToBeContinued(fade);
+      this.showToBeContinued(fade);
     });
     return true;
   }
@@ -17047,14 +15643,12 @@ export default class GameScene extends Phaser.Scene {
       this.endDuckQueenFishNet(false);
     }
 
-    // 玩家身上由女王鸭造成的牵引和鱼类减速立即解除。
     this.player.pullTarget = null;
     this.player.pullUntil = -Infinity;
     this.player.pullStrength = 0;
     this.player.slowUntil = -Infinity;
     this.player.slowMultiplier = 1;
 
-    // 清掉仍在飞行的鱼以及鱼腥减速区。
     this.fishProjectiles.children.iterate((fish) => {
       if (fish?.active) fish.destroy();
     });
@@ -17064,7 +15658,6 @@ export default class GameScene extends Phaser.Scene {
     });
     this.fishStinkZones = [];
 
-    // 只移除女王鸭带来的生态状态，不碰「粪化」「瘟疫」等其他来源状态。
     this.enemies.children.iterate((enemy) => {
       if (!enemy?.active || enemy.isDead || !enemy.statusSystem) return;
 
@@ -17095,7 +15688,6 @@ export default class GameScene extends Phaser.Scene {
       const x = roach.x;
       const y = roach.y;
 
-      // 特殊清场计入屠杀数，但不掉 XP，避免几十个经验球同时生成造成卡顿。
       roach.isDead = true;
       roach.destroy();
       this.registerKill('roach');
@@ -17219,7 +15811,6 @@ export default class GameScene extends Phaser.Scene {
       options.fontSize ?? 18,
       {
         priority: options.priority ?? 88,
-        // 女王鸭技能台词固定放在角色上方更高一层，避免压到头部 / 皇冠 / 技能特效。
         yOffset: options.yOffset ?? 112,
         replaceLowerPriority: true
       }
@@ -17235,7 +15826,6 @@ export default class GameScene extends Phaser.Scene {
       this.duckQueenTietieReactionUntil = Math.max(this.duckQueenTietieReactionUntil ?? -Infinity, until);
       this.duckQueenTietieReactionPhase = phase;
     } else if (kind === 'dafa') {
-      // 大发卖技能接入时调用本 hook，小怪鸭统一显示 👏。
       this.duckQueenDafaReactionUntil = Math.max(this.duckQueenDafaReactionUntil ?? -Infinity, until);
     }
   }
@@ -17243,7 +15833,6 @@ export default class GameScene extends Phaser.Scene {
   castDuckQueenCandy(queen, phase = 'gentle', count = 1) {
     if (!queen?.active) return;
 
-    // 女王鸭技能不再额外显示技能名称；只靠角色台词 + 技能视觉表达。
     this.showDuckQueenSkillLine(queen, 'candy', { yOffset: 108, priority: 96 });
 
     this.markDuckQueenMinionReaction('candy', phase, 1450);
@@ -17252,7 +15841,6 @@ export default class GameScene extends Phaser.Scene {
     const baseAngle = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
 
     for (let i = 0; i < candyCount; i += 1) {
-      // 真正以女王鸭为中心向四周撒开，不再只是窄扇形。
       const angle = baseAngle + (Math.PI * 2 * i) / candyCount + Phaser.Math.FloatBetween(-0.18, 0.18);
       const distance = Phaser.Math.Between(115, 165);
       const targetX = Phaser.Math.Clamp(queen.x + Math.cos(angle) * distance, 35, GAME.WORLD_WIDTH - 35);
@@ -17371,7 +15959,6 @@ export default class GameScene extends Phaser.Scene {
         fruit.setAngle(fruit.angle + 1.6);
         fruit.setScale(0.92 + 0.08 * u);
 
-        // 地面影子负责强调“上抛 -> 下坠”的高度感。
         const heightFactor = Math.sin(Math.PI * u);
         shadow.setPosition(groundX, groundY + 5);
         shadow.setScale(1 - heightFactor * 0.42, 1 - heightFactor * 0.34);
@@ -17384,7 +15971,6 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 很轻量的橙色汁点，不做魔法拖尾。
     for (let i = 0; i < 3; i += 1) {
       const mote = this.add.circle(
         startX + Phaser.Math.Between(-5, 5),
@@ -17443,7 +16029,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnDuckQueenTangerineImpact(x, y, hitPlayer = false) {
-    // 小型“啪”汁点，保持普通攻击层级。
     const count = hitPlayer ? 8 : 6;
     for (let i = 0; i < count; i += 1) {
       const dot = this.add.circle(
@@ -17467,7 +16052,6 @@ export default class GameScene extends Phaser.Scene {
 
     if (hitPlayer || !this.textures.exists('queenTangerine')) return;
 
-    // 砸空后在地上轻弹一下/滚一点，然后迅速消失；不形成持续地面效果。
     const landed = this.add.image(x, y - 5, 'queenTangerine')
       .setDepth(6)
       .setDisplaySize(20, 20)
@@ -17569,11 +16153,8 @@ export default class GameScene extends Phaser.Scene {
         puddle.nextStainAt = time + 850;
         this.addDuckQueenPinkStain(1);
       }
-      // 「蛊惑」已成为独立技能。粉色地面只负责染粉，不再随机触发走神。
     }
 
-    // 粉色液体仍可造成视觉染粉，但“染粉”不属于正式异常状态，
-    // 因此不再占用统一战斗状态提示通道。
     this.playerInDuckQueenPinkPuddle = playerInPinkPuddle;
   }
 
@@ -17662,8 +16243,6 @@ export default class GameScene extends Phaser.Scene {
   createDuckQueenCharmControlHint(durationMs = 10000) {
     this.clearDuckQueenCharmControlHint();
 
-    // 蛊惑控制提示只保留文字 + 倒计时。
-    // 方向映射箭头和中央心形图示已移除，避免占据过多战斗画面。
     const container = this.add.container(GAME.WIDTH / 2, GAME.HEIGHT - 112)
       .setScrollFactor(0)
       .setDepth(218);
@@ -17690,13 +16269,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createPlainCharmHeart(x, y, depth = 24, size = 42) {
-    // Plain「蛊惑」心：明确的“内黑、外粉”。不用 PNG，也不再像鱼/橘柑那样作为飞行物。
     const container = this.add.container(x, y).setDepth(depth);
 
     const glow = this.add.circle(0, 0, Math.max(18, size * 0.55), 0x2a071f, 0.30)
       .setStrokeStyle(3, 0xff4fae, 0.48);
 
-    // 粉色外心比黑色内心略大，形成真正可读的粉色包边。
     const outer = this.add.text(0, 0, '♥', {
       fontFamily: 'Arial, sans-serif',
       fontSize: `${Math.round(size * 1.10)}px`,
@@ -17723,7 +16300,6 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 1
     }).setOrigin(0.5);
 
-    // 额外粉色心形脉冲从本体向外扩散，比圆环更能明确“蛊惑”的视觉语言。
     const pulse = this.add.text(0, 0, '♥', {
       fontFamily: 'Arial, sans-serif',
       fontSize: `${Math.round(size * 1.12)}px`,
@@ -17809,7 +16385,6 @@ export default class GameScene extends Phaser.Scene {
       || this.duckQueenCharmSpell
     ) return false;
 
-    // 发动时只显示角色台词；黑粉心 VFX 本身负责暗示这是「蛊惑」。
     this.showDuckQueenSkillLine(queen, 'charm', { yOffset: 108, priority: 96 });
 
     const y = queen.y - Math.max(30, queen.displayHeight * 0.40);
@@ -17845,8 +16420,6 @@ export default class GameScene extends Phaser.Scene {
     this.startCharmHeartPulse(mark, { status: true });
     this.createDuckQueenCharmControlHint(statusMs);
 
-    // 是否继续接「陪我吃鱼」由女王鸭 AI 的 combo plan 决定。
-    // 蛊惑本身只负责施加状态，不再偷偷提前任何其它技能的 cooldown。
     queen?.resolveMajorSkill?.('charm', time, { chainAllowed: true });
 
     return true;
@@ -17880,7 +16453,6 @@ export default class GameScene extends Phaser.Scene {
           .setAlpha(fade);
 
         if (this.duckQueenCharmControlHint?.container?.active) {
-          // 鱼网/贴贴挣脱提示出现时，将文字倒计时上移，避免 UI 互相盖住。
           const blockedBottom = this.duckQueenFishNetActive || this.duckQueenGrappleActive;
           this.duckQueenCharmControlHint.container
             .setPosition(GAME.WIDTH / 2, GAME.HEIGHT - (blockedBottom ? 150 : 112))
@@ -17915,7 +16487,6 @@ export default class GameScene extends Phaser.Scene {
 
     const phase = queen.getPhase();
 
-    // 「真心相待」「听夜入梦」时，小鸭嫉妒、紫色蟑螂嗑糖。
     this.duckQueenAuraActive = phase !== 'gentle';
 
     if (this.duckQueenGrappleActive || this.duckQueenFishNetActive) return;
@@ -17959,15 +16530,12 @@ export default class GameScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     this.player.setTexture('playerFishNetCaughtArt');
     this.player.setOrigin(0.5, 0.5);
-    // 鱼网专用 PNG 分辨率很高，但角色本身不应该因此变小。
-    // 直接继承被命中前主角在游戏中的实际显示尺寸。
     this.player.setDisplaySize(
       this.duckQueenFishNetRestoreWidth,
       this.duckQueenFishNetRestoreHeight
     );
 
     this.createDuckQueenFishNetHint();
-    // 系统状态提示：只有鱼真正命中、鱼网成立后才显示。
     this.showScreenNotice('「被鱼网缠住！」', '#ff9fd7');
     return true;
   }
@@ -18053,8 +16621,6 @@ export default class GameScene extends Phaser.Scene {
 
   getDuckQueenFishNetAnchors() {
     if (!this.player?.active) return [];
-    // 锁定的 1254x1254 拉扯 PNG 上，三条网丝的真实截断点。
-    // 直接按源图像素记录，再映射到当前 displaySize，避免继续用大概比例估算。
     const sourceWidth = 1254;
     const sourceHeight = 1254;
     const sourceAnchors = [
@@ -18120,15 +16686,12 @@ export default class GameScene extends Phaser.Scene {
         new Phaser.Math.Vector2(end.x, end.y)
       ).getPoints(16);
 
-      // Phaser v3.90 的 Graphics 没有 quadraticBezierTo，
-      // 这里改用采样点描边，兼容 WebGL/Canvas 两侧。
       graphics.lineStyle(5.2, 0x5e145e, 0.78);
       graphics.strokePoints(curvePoints, false, false);
 
       graphics.lineStyle(2.6, 0xff5fc5, 0.94);
       graphics.strokePoints(curvePoints, false, false);
 
-      // 沿线向女王鸭流动的小液滴，不做红色吸血表现。
       const t = ((time * 0.00065 + index * 0.23) % 1 + 1) % 1;
       const u = 1 - t;
       const px = u * u * start.x + 2 * u * t * control.x + t * t * end.x;
@@ -18195,8 +16758,6 @@ export default class GameScene extends Phaser.Scene {
         queen.nextStickDashAt = Math.max(queen.nextStickDashAt ?? 0, this.time.now + 1200);
       }
 
-      // 鱼网结束只汇报给 AI scheduler。只有预先选中的「吃鱼→贴贴」combo
-      // 才会在内部冷静间隔之后尝试贴贴；单独「陪我吃鱼」不会自动接贴贴。
       queen.resolveMajorSkill?.('fish', this.time.now, {
         chainAllowed: !success && closeEnoughForCombo
       });
@@ -18235,7 +16796,6 @@ export default class GameScene extends Phaser.Scene {
     );
 
     if (distance <= queen.attachDistance + 4) {
-      // 鱼网只负责把主角拉到危险距离。是否接「贴贴」完全由预先选中的 combo plan 决定。
       this.endDuckQueenFishNet(false);
     }
   }
@@ -18308,9 +16868,7 @@ export default class GameScene extends Phaser.Scene {
     }
     queen.applyVisualState?.(queen.getTietieVisualState?.() ?? 's2_tietie');
 
-    // 女王鸭自己的技能台词。
     this.showDuckQueenSkillLine(queen, 'tietie', { priority: 92 });
-    // 技能真正成立后才出现系统状态提示。
     this.showScreenNotice('「丹麦鸭贴住了！」', '#ffd3ea');
     this.createDuckQueenEscapeHint();
   }
@@ -18357,8 +16915,6 @@ export default class GameScene extends Phaser.Scene {
         `「${action} ${this.duckQueenEscapeInputs}/${needed}」`
       );
 
-      // 每次有效挣脱输入都做一次独立脉冲：1.0 -> 1.13 -> 1.0。
-      // 不使用常驻 repeat 动画，让反馈严格对应玩家每一次点击/按键。
       this.tweens.killTweensOf(this.duckQueenEscapeHint);
       this.duckQueenEscapeHint.setScale(1);
       this.tweens.add({
@@ -18526,8 +17082,6 @@ export default class GameScene extends Phaser.Scene {
       this.player.setAngle(wave * 4.2);
       queen.setAngle(-wave * 4.2);
 
-      // 吸血 PNG 是高分辨率素材，不能 setScale(1)，否则会按原图像素突然放大。
-      // 只围绕进入贴贴前锁定的游戏显示尺寸做轻微呼吸。
       const playerBaseW = this.player.xiafanVisualDisplayWidth ?? 128;
       const playerBaseH = this.player.xiafanVisualDisplayHeight ?? 128;
       this.player.setDisplaySize(
@@ -18544,16 +17098,10 @@ export default class GameScene extends Phaser.Scene {
     } else {
       if (this.player?.active) {
         this.player.setAngle(0);
-        // 鱼网使用的是高分辨率专用 PNG；这里不能再落回 setScale(1)，
-        // 否则会覆盖鱼网期间已经锁定的 displaySize，并引发人物忽大忽小。
         if (this.duckQueenFishNetActive) {
-          // 由鱼网状态机自己维护显示尺寸。
         } else if (this.commanderBlackwaterPreviewActive) {
-          // v1.0.14：下黑水使用 1254×1254 高分辨率动作帧。
-          // 这里绝不能 setScale(1)，否则会把场中 60×60 主角瞬间放大到原图尺寸。
-          // 下黑水状态机独占纹理与显示尺寸；这里仅维持其当前状态。
+        } else if (this.duckQueenUltimateCutsceneActive) {
         } else if (!this.player.restoreXiafanVisualDisplaySize?.()) {
-          // 保留 dev14.11.6 的普通主角显示逻辑；player_idle.png 本身是 128x128。
           this.player.setScale(1);
         }
       }
@@ -18576,7 +17124,6 @@ export default class GameScene extends Phaser.Scene {
         2900
       );
       this.showScreenNotice('「丹麦鸭进入真心相待」', '#ffafd3');
-      // 阶段变化只提示小鸭的阶段生态变化。紫蟑螂的「嗑糖」状态由每只蟑螂头顶 🍬 直接显示。
       this.showScreenNotice('「小鸭进入嫉妒状态」', '#ffd3ea');
     } else if (phase === 'frenzy') {
       this.queueBossPhaseText(
@@ -18628,10 +17175,8 @@ export default class GameScene extends Phaser.Scene {
       || this.duckQueenGrappleActive
     ) return false;
 
-    // 鱼技能同样只用角色台词暗示，不再额外显示技能名称。
     this.showDuckQueenSkillLine(queen, 'fish', { fontSize: 20, yOffset: 108, priority: 92 });
 
-    // 新机制：只扔一条锁定追踪死鱼。它不能靠走位或冲刺躲掉；命中后转成鱼网牵引。
     return this.throwFishProjectile(queen, 'homing');
   }
 
@@ -18706,7 +17251,6 @@ export default class GameScene extends Phaser.Scene {
       Math.sin(angle) * ENEMIES.potatoCommander.crossAttackSpeed
     );
 
-    // 轻微脉冲让十字在小尺寸下更容易读，不改变圣十字的竖直朝向。
     this.tweens.add({
       targets: projectile,
       scaleX: projectile.scaleX * 1.08,
@@ -18721,7 +17265,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnPotatoCommanderCrossExplosion(x, y, phaseIndex = 0) {
-    // 普通攻击的小型“圣光爆裂”，只做视觉反馈，不追加第二段范围伤害。
     const finalPhase = Phaser.Math.Clamp(phaseIndex, 0, 3);
     const fx = this.add.graphics({ x, y });
     fx.setDepth(15);
@@ -18738,7 +17281,6 @@ export default class GameScene extends Phaser.Scene {
     fx.fillStyle(0xffffff, 1);
     fx.fillCircle(0, 0, 5);
 
-    // 少量十字星点，避免做成「圣裁」等级的大爆炸。
     for (const [sx, sy, r] of [[-15, -12, 2], [17, 8, 2], [8, -18, 1.5], [-9, 17, 1.5]]) {
       fx.fillStyle(0xfff5cf, 0.92);
       fx.fillRect(sx - r / 2, sy - r * 2, r, r * 4);
@@ -18767,7 +17309,6 @@ export default class GameScene extends Phaser.Scene {
     projectile.destroy();
     this.spawnPotatoCommanderCrossExplosion(x, y, phaseIndex);
 
-    // Debug 无敌 / 冲刺仍然允许十字正常命中并爆开，只是不扣血。
     const crossDamage = player.takeDamage(damage, this.time.now);
     if (crossDamage > 0) {
       this.combo = Math.floor(this.combo / 2);
@@ -18807,7 +17348,6 @@ export default class GameScene extends Phaser.Scene {
     fish.destroy();
 
     if (isHoming) {
-      // 这条鱼是“点名必中”的控制前摇：冲刺也不能免疫命中。
       for (let i = 0; i < 8; i += 1) {
         const drop = this.add.circle(
           x + Phaser.Math.Between(-7, 7),
@@ -18895,19 +17435,16 @@ export default class GameScene extends Phaser.Scene {
         const dy = this.player.y - fish.y;
         const length = Math.max(0.001, Math.hypot(dx, dy));
 
-        // 高分辨率 PNG 缩放后 Arcade body 很容易过小；用世界距离做必中兜底。
         if (length <= 34) {
           this.onFishHitsPlayer(this.player, fish);
           return;
         }
 
-        // 越拖越快，保证“必中”概念不会因为玩家一直跑而失效。
         const age = time - fish.createdAt;
         const speed = (fish.homingSpeed ?? 360) * (age > 2400 ? 1.35 : age > 1200 ? 1.16 : 1);
         fish.setVelocity(dx / length * speed, dy / length * speed);
         fish.setFlipX(dx < 0);
 
-        // 超长兜底：不是 miss，而是直接收束到主角附近，下一 physics tick 必定碰撞。
         if (age > 6500 && length > 34) {
           fish.setPosition(
             this.player.x - dx / length * 22,
@@ -18992,9 +17529,6 @@ export default class GameScene extends Phaser.Scene {
     ) {
       const commander = this.potatoCommander;
 
-      // 四层同时存在于同一条血槽中：
-      // 天蓝缩短会露出下面的绿，绿缩短露黄，黄缩短露红。
-      // 已经打空的上层保持 0，不会因当前阶段回血而重新覆盖回来。
       const layerFills = [
         this.bossBarSkyBlueFill,
         this.bossBarGreenFill,
@@ -19083,7 +17617,8 @@ export default class GameScene extends Phaser.Scene {
       this.bossBarYellowFill,
       this.bossBarGreenFill,
       this.bossBarSkyBlueFill,
-      this.bossBarText
+      this.bossBarText,
+      this.bossSkillHudText
     ].forEach((item) => {
       if (item?.active) item.destroy();
     });
@@ -19094,6 +17629,8 @@ export default class GameScene extends Phaser.Scene {
     this.bossBarGreenFill = null;
     this.bossBarSkyBlueFill = null;
     this.bossBarText = null;
+    this.bossSkillHudText = null;
+    this.bossSkillHudSourceType = null;
     this.lastBossHudLabel = null;
     this.clearCommanderJudgmentHud();
   }
@@ -19106,7 +17643,6 @@ export default class GameScene extends Phaser.Scene {
     const gapY = 42;
 
     this.activeScreenNotices.forEach((notice, index) => {
-      // 直接落到固定槽位，避免多个 y tween 互相争抢同一属性。
       notice.setY(baseY + index * gapY);
       if (notice.skillSubtext?.active) {
         notice.skillSubtext.setPosition(
@@ -19126,7 +17662,6 @@ export default class GameScene extends Phaser.Scene {
     return this.showScreenNotice(text, color, 1450);
   }
 
-  // 固定屏幕的重要提示通道：与普通 world text 完全独立，普通浮字不会阻塞或占位。
   showScreenNotice(text, color = '#ffffff', durationMs = 2000, options = {}) {
     if (this.finished) return null;
 
@@ -19285,7 +17820,6 @@ export default class GameScene extends Phaser.Scene {
       { priority: 88, yOffset: 68, replaceLowerPriority: true }
     );
 
-    // 前摇只用少量口边液滴提示方向，不再画实体扇形区域。
     for (let i = 0; i < 6; i += 1) {
       const a = targetAngle + Phaser.Math.FloatBetween(-0.16, 0.16);
       const d = Phaser.Math.FloatBetween(8, 26);
@@ -19314,7 +17848,6 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(360, () => {
       if (!source?.active || !this.player?.active) return;
 
-      // 主喷射：大量小粒子从嘴部成束向主角方向喷出，外围只保留轻微散射。
       for (let i = 0; i < 34; i += 1) {
         const spread = i < 24 ? halfAngle * 0.58 : halfAngle * 0.92;
         const a = targetAngle + Phaser.Math.FloatBetween(-spread, spread);
@@ -19341,7 +17874,6 @@ export default class GameScene extends Phaser.Scene {
         });
       }
 
-      // 少量大颗粒形成“粪块”层次，但仍是粒子，不画扇形面。
       for (let i = 0; i < 7; i += 1) {
         const a = targetAngle + Phaser.Math.FloatBetween(-halfAngle * 0.5, halfAngle * 0.5);
         const travel = Phaser.Math.FloatBetween(range * 0.56, range * 0.92);
@@ -19365,7 +17897,6 @@ export default class GameScene extends Phaser.Scene {
         });
       }
 
-      // 判定仍使用不可见的扇形，避免视觉素材决定碰撞精度。
       const dx = this.player.x - originX;
       const dy = this.player.y - originY;
       const distance = Math.hypot(dx, dy);
@@ -19412,8 +17943,6 @@ export default class GameScene extends Phaser.Scene {
       { priority: 88, yOffset: 66, replaceLowerPriority: true }
     );
 
-    // 只用粒子做技能前摇，不再绘制绿色矩形 / 胶囊区域。
-    // 前摇粒子从猫嘴附近沿锁定方向轻微外飘，给玩家可读性但不产生“绿色矩阵”感。
     for (let i = 0; i < 14; i += 1) {
       const spread = Phaser.Math.FloatBetween(-0.24, 0.24);
       const preAngle = angle + spread;
@@ -19526,7 +18055,6 @@ export default class GameScene extends Phaser.Scene {
     projectile.sourceEnemyType = source.enemyType ?? 'default';
     projectile.setDepth(9);
     projectile.setDisplaySize(22, 22);
-    // 正式屎弹素材只在发射时朝向主角，不再边飞边自转。
     const launchAngle = Phaser.Math.Angle.Between(
       projectile.x,
       projectile.y,
@@ -19664,9 +18192,6 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      // 地面污染素材保持固定尺寸与固定位置。
-      // 不再对 setDisplaySize() 后的图片调用 setScale()，否则会把原始大图恢复到接近原生像素尺寸，
-      // 造成“铺满屏幕 + 晃动”的问题。只在消失前做轻微透明度淡出。
       const remainingMs = zone.expiresAt - time;
       const fade = Phaser.Math.Clamp(remainingMs / 850, 0, 1);
       zone.display.setAlpha((zone.baseAlpha ?? 0.4) * fade);
@@ -19696,7 +18221,6 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      // 双子猪泥潭也是静态环境素材：固定大小、不缩放抖动。
       const remainingMs = zone.expiresAt - time;
       const fade = Phaser.Math.Clamp(remainingMs / 850, 0, 1);
       zone.display.setAlpha((zone.baseAlpha ?? 0.75) * fade);
@@ -19732,8 +18256,6 @@ export default class GameScene extends Phaser.Scene {
     const count = beatSynced ? 2 : 1;
     const tint = strong ? 0xf4fdff : (beatSynced ? 0xc9f4ff : 0x9edfff);
 
-    // dev14.21.3：在原有单张 afterimage 之外补 1–2 层方向性残影。
-    // 位置只落在 Dash 起点后方，不推动真实 Player。
     for (let i = 0; i < count; i += 1) {
       const offset = 12 + i * 13;
       const after = this.add.image(
@@ -19767,7 +18289,6 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
-    // 两条贴地/贴身的速度线让闪步方向更明确；踩中 Beat 时更长、更亮。
     [-1, 1].forEach((side) => {
       const lateral = 5.5 * side;
       const streak = this.add.rectangle(
@@ -19825,8 +18346,6 @@ export default class GameScene extends Phaser.Scene {
   spawnAfterImage(source = this.player) {
     if (!source?.active) return;
 
-    // dev12：残影直接复用正式 playerArt，并继承主角当前视觉变换。
-    // 不再依赖旧的 36px `player` 占位纹理。
     const after = this.add.image(source.x, source.y, 'playerArt')
       .setOrigin(source.originX ?? 0.5, source.originY ?? 0.5)
       .setScale(Math.abs(source.scaleX), Math.abs(source.scaleY))
@@ -19859,14 +18378,9 @@ export default class GameScene extends Phaser.Scene {
 
     let targetY = y;
 
-    // 只在真实发生包围盒冲突时向上让位。
-    // 这样同一角色/敌人同时触发多个提示时会自然排成纵向队列，
-    // 远处的文字不会因为共享全局槽位而被错误移动。
     for (let attempt = 0; attempt < 8; attempt += 1) {
       label.setPosition(x, targetY);
 
-      // 普通文字需要避让其它普通文字，也需要避让重要文字；
-      // 反过来 ImportantTextManager 不读取普通文字，因此重要文字永远拥有优先位置。
       const collisionCandidates = [
         ...this.activeWorldTextLabels,
         ...(this.importantText?.getActiveLabels?.() ?? [])
@@ -20139,12 +18653,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (gainedLevels > 0) {
-      // 成长规则：每升一级永久增加 2 点最大生命。
-      // 先增加 Max HP，再按升级后的 Max HP 结算原有 10% 升级回血。
       this.player.maxHp += PLAYER.LEVEL_MAX_HP_GAIN * gainedLevels;
 
-      // Internal Test v1.0.5：每升一级自动回复 10% Max HP。
-      // 一次经验拾取若连升多级，就按实际升级次数累计，但绝不超过 Max HP。
       const levelHealTarget = Math.max(1, Math.round(this.player.maxHp * 0.10 * gainedLevels));
       const hpBeforeLevelHeal = this.player.hp;
       this.player.heal(levelHealTarget);
@@ -20161,7 +18671,6 @@ export default class GameScene extends Phaser.Scene {
         );
       }
 
-      // 技能只在每 5 级给一次。一次连升多级时，所有跨过的 5 级里程碑都排队，不漏掉。
       const skillMilestones = this.getSkillUpgradeMilestonesCrossed(levelBeforeGain, this.level, 5);
       if (skillMilestones.length > 0) {
         this.pendingUpgradeChoices += skillMilestones.length;
@@ -20172,8 +18681,6 @@ export default class GameScene extends Phaser.Scene {
       this.updatePlayerGrowthAura(this.time.now, { allowSpawn: false });
       this.playPlayerLevelUpAuraPulse(gainedLevels);
 
-      // 后期割草成长：Lv.20 进入双月，Lv.40 进入三月齐发。
-      // 数量只影响普通攻击月牙，「月之守卫」始终是独立永久被动。
       if (levelBeforeGain < 20 && this.level >= 20) {
         this.playAttackCrescentMilestonePreview(2);
         this.showScreenNotice('「月牙强化：双月」', '#94d5f3', 1900);
@@ -20186,7 +18693,6 @@ export default class GameScene extends Phaser.Scene {
         });
       }
 
-      // Lv.20 / Lv.40 先做 Aura 阶段跃升；正式人物 PNG 会在后续单独制作并接入这里。
       this.getPlayerEvolutionMilestonesCrossed(levelBeforeGain, this.level)
         .forEach((milestone) => this.playPlayerAuraEvolutionMilestone(milestone));
 
@@ -20206,7 +18712,6 @@ export default class GameScene extends Phaser.Scene {
     this.lastXpPickupAt = now;
 
     if (this.xpFeedbackText?.active) {
-      // EXP 明确执行「旧换新」：旧反馈立即移除，不与新反馈短暂叠字。
       this.tweens.killTweensOf(this.xpFeedbackText);
       this.unregisterWorldTextLabel(this.xpFeedbackText);
       this.xpFeedbackText.destroy();
@@ -20253,7 +18758,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getXpNeeded() {
-    // 前三次升级稍快，让 build 在前 90 秒内真正开始成形。
     let base = 5 + (this.level - 1) * 4;
     if (this.level === 1) base = 4;
     else if (this.level === 2) base = 7;
@@ -20266,93 +18770,130 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getUpgradePool() {
-    return [
-      {
-        title: '「聚光更亮」',
-        description: '自动攻击伤害 +30%',
-        apply: () => {
-          this.player.attackDamage = Math.round(this.player.attackDamage * 1.30);
-          this.player.crescentLevel = Math.min(4, (this.player.crescentLevel ?? 1) + 1);
-        }
-      },
-      {
-        title: '「节奏加快」',
-        description: '自动攻击间隔 -12%',
-        apply: () => { this.player.fireInterval = Math.max(150, Math.round(this.player.fireInterval * 0.88)); }
-      },
-      {
-        title: '「舞步更稳」',
-        description: '移动速度 +8%',
-        apply: () => { this.player.moveSpeed = Math.round(this.player.moveSpeed * 1.08); }
-      },
-      {
-        title: '「撑住」',
-        description: '最大 HP +15，并恢复 15',
-        apply: () => {
-          this.player.maxHp += 15;
-          this.player.hp = Math.min(this.player.maxHp, this.player.hp + 15);
-        }
-      },
-      {
-        title: '「屏蔽杂音」',
-        description: '受到的高伤害结果概率 -5%',
-        apply: () => { this.player.damageReduction = Math.min(0.45, this.player.damageReduction + 0.05); }
-      },
-      {
-        title: '「卡点训练」',
-        description: '闪身冷却 -10%，PERFECT 窗口 +10ms',
-        apply: () => {
-          this.player.dashCooldown = Math.max(300, Math.round(this.player.dashCooldown * 0.90));
-          this.player.perfectWindow = Math.min(210, this.player.perfectWindow + 10);
-        }
-      },
-      {
-        title: '「舞步冲击」',
-        description: '近身范围伤害 +30%，范围 +10%',
-        apply: () => {
-          this.player.dancePulseDamage = Math.round(this.player.dancePulseDamage * 1.30);
-          this.player.dancePulseRadius = Math.round(this.player.dancePulseRadius * 1.10);
-        }
-      },
-      {
-        title: this.player.soundWaveUnlocked ? '「声浪强化」' : '「解锁声浪」',
-        description: this.player.soundWaveUnlocked
-          ? '声浪伤害 +25%，范围 +10%，冷却 -8%'
-          : '周期释放大范围声浪，伤害并击退附近敌人',
-        apply: () => {
-          if (!this.player.soundWaveUnlocked) {
-            this.player.soundWaveUnlocked = true;
-            this.player.nextSoundWaveAt = this.time.now + 500;
-          } else {
-            this.player.soundWaveDamage = Math.round(this.player.soundWaveDamage * 1.25);
-            this.player.soundWaveRadius = Math.round(this.player.soundWaveRadius * 1.10);
-            this.player.soundWaveInterval = Math.max(2200, Math.round(this.player.soundWaveInterval * 0.92));
-          }
-        }
-      },
-      {
-        title: this.player.electricUnlocked ? `「电力四射 Lv.${this.player.electricLevel + 1}」` : '「解锁电力四射」',
-        description: this.player.electricUnlocked
-          ? '电击/冲击伤害 +20%，范围 +8%，冷却 -8%'
-          : '低频强力 AOE：先电击麻痹，再爆发冲击波清场',
-        apply: () => {
-          if (!this.player.electricUnlocked) {
-            this.player.electricUnlocked = true;
-            this.player.electricLevel = 1;
-            this.player.nextElectricAt = this.time.now + 1100;
-          } else {
-            this.player.electricLevel += 1;
-            this.player.electricBurstDamage = Math.round(this.player.electricBurstDamage * 1.20);
-            this.player.electricShockDamage = Math.round(this.player.electricShockDamage * 1.20);
-            this.player.electricBurstRadius = Math.round(this.player.electricBurstRadius * 1.08);
-            this.player.electricShockRadius = Math.round(this.player.electricShockRadius * 1.08);
-            this.player.electricStunMs = Math.min(1000, this.player.electricStunMs + 70);
-            this.player.electricShockKnockback = Math.round(this.player.electricShockKnockback * 1.08);
-            this.player.electricInterval = Math.max(7600, Math.round(this.player.electricInterval * 0.92));
-          }
+    const pool = [];
+    const add = (name, currentLevel, maxLevel, description, apply) => {
+      if (currentLevel >= maxLevel) return;
+      const nextLevel = currentLevel + 1;
+      const isMax = nextLevel >= maxLevel;
+      const levelLabel = isMax ? 'MAX' : UPGRADE_ROMAN[nextLevel];
+      pool.push({
+        title: `「${name} ${levelLabel}」`,
+        description,
+        isMax,
+        apply
+      });
+    };
+
+    add(
+      '聚光更亮',
+      Math.max(1, this.player.crescentLevel || 1),
+      4,
+      '自动月牙伤害 +30%，月牙视觉等级提升',
+      () => {
+        this.player.attackDamage = Math.round(this.player.attackDamage * 1.30);
+        this.player.crescentLevel = Math.min(4, Math.max(1, this.player.crescentLevel || 1) + 1);
+      }
+    );
+
+    add(
+      '节奏加快',
+      this.player.fireRateLevel || 0,
+      3,
+      '自动攻击间隔 -12%',
+      () => {
+        this.player.fireRateLevel = Math.min(3, (this.player.fireRateLevel || 0) + 1);
+        this.player.fireInterval = Math.max(150, Math.round(this.player.fireInterval * 0.88));
+      }
+    );
+
+    add(
+      '舞步更稳',
+      this.player.moveSpeedLevel || 0,
+      3,
+      '移动速度 +8%',
+      () => {
+        this.player.moveSpeedLevel = Math.min(3, (this.player.moveSpeedLevel || 0) + 1);
+        this.player.moveSpeed = Math.round(this.player.moveSpeed * 1.08);
+      }
+    );
+
+    add(
+      '屏蔽杂音',
+      this.player.noiseShieldLevel || 0,
+      3,
+      '受到的高伤害结果概率 -5%',
+      () => {
+        this.player.noiseShieldLevel = Math.min(3, (this.player.noiseShieldLevel || 0) + 1);
+        this.player.damageReduction = Math.min(0.15, this.player.damageReduction + 0.05);
+      }
+    );
+
+    add(
+      '卡点训练',
+      this.player.dashTrainingLevel || 0,
+      4,
+      '闪身冷却减少 1 拍',
+      () => {
+        this.player.dashTrainingLevel = Math.min(4, (this.player.dashTrainingLevel || 0) + 1);
+        this.player.dashCooldown = Math.max(1000, PLAYER.DASH_COOLDOWN_MS - this.player.dashTrainingLevel * 500);
+      }
+    );
+
+    add(
+      '声浪',
+      this.player.soundWaveLevel || 0,
+      4,
+      (this.player.soundWaveLevel || 0) <= 0
+        ? '解锁低频主题蓝声浪：只麻痹，不伤害、不击退'
+        : '范围扩大，冷却降低，麻痹时间小幅延长，并增加金色粒子',
+      () => {
+        const next = Math.min(4, (this.player.soundWaveLevel || 0) + 1);
+        this.player.soundWaveUnlocked = true;
+        this.player.soundWaveLevel = next;
+        this.player.soundWaveDamage = 0;
+        this.player.soundWaveKnockback = 0;
+        this.player.soundWaveRadius = PLAYER.SOUND_WAVE_RADIUS_BY_LEVEL?.[next - 1] ?? PLAYER.SOUND_WAVE_RADIUS;
+        this.player.soundWaveInterval = PLAYER.SOUND_WAVE_INTERVAL_MS_BY_LEVEL?.[next - 1] ?? PLAYER.SOUND_WAVE_INTERVAL_MS;
+        if (next === 1) this.player.nextSoundWaveAt = this.time.now + 800;
+      }
+    );
+
+    add(
+      '电力四射',
+      this.player.electricLevel || 0,
+      4,
+      (this.player.electricLevel || 0) <= 0
+        ? '解锁低频强力 AOE：先电击麻痹，再爆发冲击波'
+        : '电击/冲击伤害 +20%，范围 +8%，冷却 -8%',
+      () => {
+        if (!this.player.electricUnlocked) {
+          this.player.electricUnlocked = true;
+          this.player.electricLevel = 1;
+          this.player.nextElectricAt = this.time.now + 1100;
+        } else {
+          this.player.electricLevel = Math.min(4, this.player.electricLevel + 1);
+          this.player.electricBurstDamage = Math.round(this.player.electricBurstDamage * 1.20);
+          this.player.electricShockDamage = Math.round(this.player.electricShockDamage * 1.20);
+          this.player.electricBurstRadius = Math.round(this.player.electricBurstRadius * 1.08);
+          this.player.electricShockRadius = Math.round(this.player.electricShockRadius * 1.08);
+          this.player.electricStunMs = Math.min(1000, this.player.electricStunMs + 70);
+          this.player.electricShockKnockback = Math.round(this.player.electricShockKnockback * 1.08);
+          this.player.electricInterval = Math.max(7600, Math.round(this.player.electricInterval * 0.92));
         }
       }
-    ];
+    );
+
+    add(
+      '红气养人',
+      this.player.lifestealLevel || 0,
+      3,
+      ['月牙命中回血 5%', '月牙命中回血 10%', '月牙命中回血 15%'][this.player.lifestealLevel || 0],
+      () => {
+        this.player.lifestealLevel = Math.min(3, (this.player.lifestealLevel || 0) + 1);
+      }
+    );
+
+    return pool;
   }
 
   wrapUpgradeCardText(text, maxUnits = 13.5) {
@@ -20361,10 +18902,16 @@ export default class GameScene extends Phaser.Scene {
 
   showUpgradeChoice(milestoneLevel = this.level) {
     if (this.isChoosingUpgrade || this.finished) return;
+
+    const availableUpgradePool = this.getUpgradePool();
+    if (availableUpgradePool.length <= 0) {
+      this.activeUpgradeMilestoneLevel = null;
+      this.time.delayedCall(0, () => this.tryPresentPendingUpgradeChoice());
+      return;
+    }
+
     this.isChoosingUpgrade = true;
 
-    // 半暂停：物理世界约 25% 速度，场景计时事件也压到 25%；音乐保持连续。
-    // 玩家停止移动且临时无敌，避免“看卡时被打死”，但背景仍有轻微运动感。
     this.upgradePreviousPhysicsTimeScale = this.physics.world.timeScale ?? 1;
     this.upgradePreviousClockTimeScale = this.time.timeScale ?? 1;
     this.physics.world.timeScale = 4;
@@ -20379,16 +18926,13 @@ export default class GameScene extends Phaser.Scene {
       || this.prefersTouchEscape
       || this.sys.game.device.input.touch;
 
-    // 升级选择时先把手机摇杆 / 四键隐藏，避免挡住卡片。
     if (isTouchLayout && Array.isArray(this.mobileControls)) {
       this.mobileControls.forEach((item) => item?.setVisible(false));
     }
 
-    const pool = Phaser.Utils.Array.Shuffle(this.getUpgradePool().slice());
+    const pool = Phaser.Utils.Array.Shuffle(availableUpgradePool.slice());
     const choices = pool.slice(0, 3);
 
-    // 0.9.2-dev07.1-C：升级卡统一为蓝黑舞台风，三张卡按总宽自动居中。
-    // 手机横屏继续使用更高卡片 + 更小字号，避免中文说明出框。
     const cardWidth = isTouchLayout ? 228 : 244;
     const cardHeight = isTouchLayout ? 238 : 216;
     const cardGap = isTouchLayout ? 16 : 20;
@@ -20443,14 +18987,12 @@ export default class GameScene extends Phaser.Scene {
       const x = firstCardX + index * (cardWidth + cardGap);
       const cardTop = cardY - cardHeight / 2;
 
-      // 卡片：深蓝黑底 + #94d5f3 月光描边；不再用旧版悬空数字布局。
       const card = this.add.rectangle(x, cardY + 8, cardWidth, cardHeight, 0x172334, 0.98)
         .setStrokeStyle(2, 0x94d5f3, 0.62).setScrollFactor(0).setDepth(201)
         .setInteractive({ useHandCursor: true })
         .setAlpha(0)
         .setScale(0.94);
 
-      // 1/2/3 只是选择键提示，收进卡片左上角，不抢技能名称视觉层级。
       const badgeX = x - cardWidth / 2 + 24;
       const badgeY = cardTop + 22;
       const keyBadge = this.add.circle(badgeX, badgeY, isTouchLayout ? 13 : 14, 0x94d5f3, 0.16)
@@ -20461,8 +19003,6 @@ export default class GameScene extends Phaser.Scene {
         color: '#dff6ff'
       }).setOrigin(0.5).setScrollFactor(0).setDepth(203);
 
-      // 0.9.2-dev07.1-C.1：技能标题优先保持单行。
-      // 长标题先缩小字号，而不是直接强制换行；额外 top padding 防止中文字形顶部被裁。
       const titleText = String(choice.title ?? '');
       const titleSafeWidth = cardWidth - (isTouchLayout ? 30 : 34);
       const baseNameFontPx = isTouchLayout ? 18 : 21;
@@ -20470,7 +19010,7 @@ export default class GameScene extends Phaser.Scene {
       const name = this.add.text(x, cardTop + (isTouchLayout ? 54 : 50), titleText, {
         fontSize: `${baseNameFontPx}px`,
         fontStyle: 'bold',
-        color: '#ffffff',
+        color: choice.isMax ? THEME_BLUE_HEX : '#ffffff',
         align: 'center'
       }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(202);
       name.setPadding(4, 5, 4, 4);
@@ -20481,14 +19021,10 @@ export default class GameScene extends Phaser.Scene {
         name.setFontSize(fittedTitleSize);
       }
 
-      // 最新约定：技能名称保留「」，技能描述本身不再带「」。
-      // strip 仅作为旧数据兼容，新的升级数据已经直接存 plain description。
       const plainDescription = String(choice.description ?? '')
         .replace(/^「/, '')
         .replace(/」$/, '');
       const wrappedDesc = this.wrapUpgradeCardText(plainDescription, wrapUnits);
-      // 0.9.2-dev07.1-C.2：描述区单独留安全高度与上下 padding。
-      // 中文多行文本不再紧贴自身 canvas 边缘；必要时只缩描述字号，不影响标题。
       const descTop = cardTop + (isTouchLayout ? 108 : 98);
       const descBottomSafe = cardTop + cardHeight - (isTouchLayout ? 20 : 18);
       const descMaxHeight = Math.max(72, descBottomSafe - descTop);
@@ -20536,7 +19072,6 @@ export default class GameScene extends Phaser.Scene {
         choice.apply();
         handlers.forEach(({ key, fn }) => this.input.keyboard.off(`keydown-${key}`, fn));
 
-        // 先让卡片快速淡出，再恢复 100% 物理与场景时间；音乐从头到尾不断。
         this.tweens.add({
           targets: ui,
           alpha: 0,
@@ -20582,6 +19117,11 @@ export default class GameScene extends Phaser.Scene {
     this.bullets.children.iterate((bullet) => {
       if (!bullet?.active) return;
 
+      if (bullet.lifestealLevel > 0 && time >= (bullet.nextLifestealParticleAt ?? 0)) {
+        bullet.nextLifestealParticleAt = time + (bullet.lifestealLevel >= 3 ? 34 : bullet.lifestealLevel === 2 ? 46 : 62);
+        this.spawnCrescentLifestealTrail(bullet, time);
+      }
+
       if (time >= (bullet.nextTrailAt ?? 0)) {
         bullet.nextTrailAt = time + 48;
         const trail = this.add.image(
@@ -20611,9 +19151,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getResponsiveVisibleRect() {
-    // Phaser FIT 始终完整显示 960×540 逻辑画面；
-    // 不同屏幕比例产生的多余空间留在 canvas 外部，不再裁切游戏世界。
-    // 因此 HUD / 手机按键的安全布局应始终以完整逻辑区域为基准。
     return {
       x: 0,
       y: 0,
@@ -20665,8 +19202,6 @@ export default class GameScene extends Phaser.Scene {
     const leftX = view.x + 14 + (this.prefersTouchEscape ? 4 : 0);
     const rightX = view.right - 14 - (this.prefersTouchEscape ? 4 : 0);
 
-    // 主角血条固定长度，不跟 Max HP 横向增长。
-    // 超窄可视区域下，如果左上血条会碰到中央 Boss 血条，则自动下移一行。
     const playerHpWidth = this.playerHpBarWidth ?? 170;
     const bossReservedLeft = view.centerX - 190;
     const hpValueReserve = this.isTouchHudLayout ? 72 : 80;
@@ -20714,6 +19249,13 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
+    if (this.bossSkillHudText?.active) {
+      const bossSkillY = safeTop + (
+        this.bossSkillHudSourceType === 'potatoCommander' ? 158 : 66
+      );
+      this.bossSkillHudText.setPosition(view.centerX, bossSkillY);
+    }
+
     if (this.tutorialHintText?.active) {
       this.tutorialHintText.setPosition(
         view.centerX,
@@ -20744,8 +19286,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createHud() {
-    // 手机横屏时顶部经常被 Safari / Chrome 顶栏、刘海或灵动岛遮挡。
-    // 游戏内 HUD 统一下移到安全区域；桌面端保持原位置。
     const isTouchDevice = Boolean(
       this.sys.game.device.input.touch
       || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0)
@@ -20816,8 +19356,6 @@ export default class GameScene extends Phaser.Scene {
     this.comboText = this.add.text(leftX, 78 + this.mobileHudSafeTop, '', compactStyle).setScrollFactor(0).setDepth(100);
 
     this.timeText = this.add.text(rightX, 14 + this.mobileHudSafeTop, '', style).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
-    // 0.9.2-dev07.1-A.1：固定按键技能保持连续顺序；升级解锁的「电力四射」只追加在最下方。
-    // 未解锁电力时 electricText 为空，但不会再在固定按键技能之间留下空槽。
     this.dashText = this.add.text(rightX, 46 + this.mobileHudSafeTop, '', compactStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
     this.spinText = this.add.text(rightX, 78 + this.mobileHudSafeTop, '', compactStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
     this.keyText = this.add.text(rightX, 110 + this.mobileHudSafeTop, '', compactStyle).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
@@ -20828,8 +19366,6 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(100)
       .setVisible(false);
 
-    // 中文字体在 Canvas Text 的视觉基线上略偏下。保持黑底条总高度基本不变，
-    // 通过“上少下多”的 padding 把字形视觉中心轻微上提。
     const regularHudTexts = [this.levelText, this.timeText];
     const compactHudTexts = [
       this.killText,
@@ -20852,9 +19388,6 @@ export default class GameScene extends Phaser.Scene {
     const maxHp = Math.max(1, Math.round(Number(this.player.maxHp) || 1));
     const hp = Phaser.Math.Clamp(Number(this.player.hp) || 0, 0, maxHp);
 
-    // 每一层都覆盖同一整条槽；当前 Max HP 在该层实际拥有多少血，
-    // 就把那部分定义为这一层的“100%”。例如 Max HP=120 时，
-    // 黄色整条只代表 20 HP，掉完这 20 HP 后露出下面完整红条。
     const redCapacity = Math.min(100, maxHp);
     const yellowCapacity = Math.max(0, Math.min(100, maxHp - 100));
     const greenCapacity = Math.max(0, Math.min(100, maxHp - 200));
@@ -20894,7 +19427,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.updatePlayerHpBar();
     this.levelText.setText(`Lv.${this.level}   XP ${this.xp} / ${this.xpNeeded}`);
-    // 屠杀统计只在结算界面展示；战斗 HUD 不再持续占用画面。
     this.killText.setText('').setVisible(false);
     this.comboText.setText(`「舞步 Combo x${this.combo}」`);
     this.dashText.setText(dashReadyIn <= 0 ? `「${dashLabel}：闪身 READY」` : `「闪身 ${(dashReadyIn / 1000).toFixed(1)}s」`);
@@ -20902,12 +19434,14 @@ export default class GameScene extends Phaser.Scene {
     if (this.player.electricUnlocked) {
       const electricReadyIn = Math.max(0, this.player.nextElectricAt - time);
       const electricLevel = Math.max(1, this.player.electricLevel || 1);
+      const electricLevelLabel = electricLevel >= 4 ? 'MAX' : UPGRADE_ROMAN[electricLevel];
       this.electricText
         .setVisible(true)
+        .setColor(electricLevel >= 4 ? THEME_BLUE_HEX : '#ffffff')
         .setText(
           electricReadyIn <= 0
-            ? `「电力四射 Lv.${electricLevel}｜READY」`
-            : `「电力四射 Lv.${electricLevel}｜${(electricReadyIn / 1000).toFixed(1)}s」`
+            ? `「电力四射 ${electricLevelLabel}｜READY」`
+            : `「电力四射 ${electricLevelLabel}｜${(electricReadyIn / 1000).toFixed(1)}s」`
         );
     } else {
       this.electricText.setText('').setVisible(false);
@@ -21033,103 +19567,6 @@ export default class GameScene extends Phaser.Scene {
     return created;
   }
 
-  createInternalTestSettlementButton(x, y, label, onPress) {
-    const bg = this.add.rectangle(x, y, 190, 48, 0x17324c, 0.96)
-      .setStrokeStyle(2, 0x94d5f3, 0.82)
-      .setScrollFactor(0)
-      .setDepth(304)
-      .setInteractive({ useHandCursor: true });
-    const labelText = this.add.text(x, y, label, {
-      fontSize: '18px',
-      fontStyle: 'bold',
-      color: '#f3fbff'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(305);
-
-    bg.on('pointerover', () => bg.setFillStyle(0x21445f, 1));
-    bg.on('pointerout', () => bg.setFillStyle(0x17324c, 0.96));
-    bg.on('pointerdown', onPress);
-    return [bg, labelText];
-  }
-
-  showInternalTestSettlement(elapsedSeconds) {
-    this.internalTestSettlementActive = true;
-    const seconds = Math.floor(elapsedSeconds);
-    const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const ss = String(seconds % 60).padStart(2, '0');
-    const total = this.getKillStatEntries().reduce((sum, entry) => sum + entry.count, 0);
-
-    this.add.rectangle(
-      GAME.WIDTH / 2,
-      GAME.HEIGHT / 2,
-      GAME.WIDTH,
-      GAME.HEIGHT,
-      0x07111e,
-      0.98
-    ).setScrollFactor(0).setDepth(300);
-
-    this.add.text(GAME.WIDTH / 2, 50, '「内测完成」', {
-      fontSize: '32px',
-      fontStyle: 'bold',
-      color: '#ffffff',
-      stroke: '#17324c',
-      strokeThickness: 5
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
-
-    this.add.text(GAME.WIDTH / 2, 82, RELEASE.BUILD_LABEL, {
-      fontSize: '14px',
-      color: '#94d5f3',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
-
-    const summary = `存活 ${mm}:${ss}　｜　Lv.${this.level}　｜　总击杀 ${total}　｜　最高 Combo x${this.highestCombo}`;
-    this.add.text(GAME.WIDTH / 2, 122, summary, {
-      fontSize: '17px',
-      color: '#dce4ef'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
-
-    this.createKillStatsTable(GAME.WIDTH / 2, 166, { depth: 302, cellWidth: 300, rowHeight: 38 });
-
-    const clearedBosses = RELEASE.POTATO_COMMANDER_PUBLISHED
-      ? '丹麦鸭 ✓　｜　土豆指挥官 ✓'
-      : '丹麦鸭　已击败 ✓';
-    this.add.text(GAME.WIDTH / 2, 368, clearedBosses, {
-      fontSize: '19px',
-      fontStyle: 'bold',
-      color: RELEASE.POTATO_COMMANDER_PUBLISHED ? '#f2d58a' : '#ffd0e6'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(302);
-
-    this.createInternalTestSettlementButton(
-      GAME.WIDTH / 2 - 112,
-      428,
-      '再来一局',
-      () => {
-        this.registry.set('internalTestAutoStart', true);
-        this.registry.set('internalTestForceTitle', false);
-        this.scene.restart();
-      }
-    );
-
-    this.createInternalTestSettlementButton(
-      GAME.WIDTH / 2 + 112,
-      428,
-      '返回标题',
-      () => {
-        this.registry.set('internalTestAutoStart', false);
-        this.registry.set('internalTestForceTitle', false);
-        this.scene.start('StartScene');
-      }
-    );
-
-    this.add.text(
-      GAME.WIDTH / 2,
-      486,
-      RELEASE.POTATO_COMMANDER_PUBLISHED
-        ? '当前测试章节完成 · DEBUG 工具已开放'
-        : '后续章节将在下一次测试中开放',
-      { fontSize: '14px', color: '#8399aa' }
-    ).setOrigin(0.5).setScrollFactor(0).setDepth(302);
-  }
-
   endRun(success) {
     if (this.finished) return;
     this.finished = true;
@@ -21140,11 +19577,6 @@ export default class GameScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
 
     const elapsedSeconds = this.victoryElapsedSeconds ?? this.getGameplayElapsedSeconds();
-
-    if (success && RELEASE.INTERNAL_TEST_BUILD) {
-      this.showInternalTestSettlement(elapsedSeconds);
-      return;
-    }
 
     const seconds = Math.floor(elapsedSeconds);
     const mm = String(Math.floor(seconds / 60)).padStart(2, '0');

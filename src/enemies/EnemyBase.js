@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import StatusSystem from '../systems/StatusSystem.js';
-import { STATUS_EFFECTS } from '../config/gameConfig.js';
+import StatusSystem from '../systems/StatusSystem.js?v=2.0.0';
+import { STATUS_EFFECTS } from '../config/gameConfig.js?v=2.0.0';
 
 export default class EnemyBase extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, texture, stats, enemyType) {
@@ -11,8 +11,13 @@ export default class EnemyBase extends Phaser.Physics.Arcade.Sprite {
     this.enemyType = enemyType;
     const difficulty = scene.difficultyProfile ?? {};
     const isBoss = enemyType === 'duckQueen' || enemyType === 'potatoCommander';
+    const isElite = enemyType === 'twinPig' || enemyType === 'plagueCat';
     const hpMultiplier = Number(
-      isBoss ? difficulty.bossHpMultiplier : difficulty.minionHpMultiplier
+      isBoss
+        ? difficulty.bossHpMultiplier
+        : isElite
+          ? (difficulty.eliteHpMultiplier ?? difficulty.minionHpMultiplier)
+          : difficulty.minionHpMultiplier
     ) || 1;
     const speedMultiplier = Number(
       isBoss ? difficulty.bossSpeedMultiplier : difficulty.minionSpeedMultiplier
@@ -65,8 +70,6 @@ export default class EnemyBase extends Phaser.Physics.Arcade.Sprite {
 
     this.statusSystem.update(time);
 
-    // 鸭后的「嫉妒 / 嗑糖」现在是全局 Aura，不再反复写入每只怪的 StatusSystem。
-    // 只有 Aura 开关真正改变时才刷新视觉，避免高频 tint / label 写入。
     const auraSignature = `${this.isJealousByQueen() ? 1 : 0}${this.isSugarHighByQueen() ? 1 : 0}`;
     if (auraSignature !== this.lastAuraSignature) {
       this.lastAuraSignature = auraSignature;
@@ -178,8 +181,6 @@ export default class EnemyBase extends Phaser.Physics.Arcade.Sprite {
     const hasSugarHigh = this.hasEffectiveStatus('sugar_high');
 
     this.clearTint();
-    // 双子猪污染：保留正式泥污 overlay，同时给本体一点棕色，远看也能马上辨认。
-    // 瘟疫感染仍保持偏绿；两种状态同时存在时用偏橄榄棕的混合色。
     if (hasPoop && hasPlague) this.setTint(0x9b9568);
     else if (hasPoop) this.setTint(0xb88a68);
     else if (hasSugarHigh && hasPlague) this.setTint(0xc87adf);
@@ -287,16 +288,10 @@ export default class EnemyBase extends Phaser.Physics.Arcade.Sprite {
   updateStatusLabel() {
     if (!this.statusLabel?.active) return;
 
-    // 敌人持续状态统一通过头顶 Emoji 直接表达：
-    // 💩 = 屎污染，☣️ = 瘟疫，🍬 = 紫蟑螂嗑糖。
-    // 「嗑糖」虽然由女王鸭 Aura 提供，但必须和瘟疫/屎污染一样让玩家直接看见。
     const icons = [];
     if (this.statusSystem.has('poop_buff')) icons.push('💩');
     if (this.statusSystem.has('plague')) icons.push('☣️');
 
-    // 紫蟑螂的 🍬 不只依赖二/三阶段 Aura：
-    // 一阶段「发糖」已经会把蟑螂吸向糖点，因此从被糖吸引开始就必须看得到 🍬，
-    // 到达糖点后再保留一个短暂尾段；若 Aura 正在生效则继续常驻显示。
     const queenCandyLinked = this.enemyType === 'roach' && (
       this.hasEffectiveStatus('sugar_high')
       || (
@@ -334,7 +329,6 @@ export default class EnemyBase extends Phaser.Physics.Arcade.Sprite {
     this.hp -= effectiveDamage;
 
     if (this.disableHitScale) {
-      // 双子猪正式素材受击只闪烁，不做 squash / scale punch。
       this.setAlpha(0.48);
       this.scene.time.delayedCall(58, () => {
         if (this.active && !this.isDead) this.setAlpha(1);

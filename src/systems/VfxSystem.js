@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
-import { PLAYER_VFX_REFERENCE } from '../config/vfxConfig.js';
-import { VFX_ASSETS, VFX_DEFAULTS } from '../config/vfxConfig.js';
+import { PLAYER_VFX_REFERENCE } from '../config/vfxConfig.js?v=2.0.0';
+import { VFX_ASSETS, VFX_DEFAULTS } from '../config/vfxConfig.js?v=2.0.0';
 
 export function preloadRegisteredVfx(scene) {
   VFX_ASSETS
@@ -49,8 +49,6 @@ export default class VfxSystem {
       .setAlpha(options.alpha ?? VFX_DEFAULTS.alpha)
       .setScale(options.scale ?? VFX_DEFAULTS.scale);
 
-    // displayWidth/displayHeight are applied after base scale so long bolts / flat ground effects
-    // can share normalized source canvases without hard-coding texture pixel sizes in GameScene.
     if (Number.isFinite(options.displayWidth) && Number.isFinite(options.displayHeight)) {
       image.setDisplaySize(options.displayWidth, options.displayHeight);
     }
@@ -87,7 +85,6 @@ export default class VfxSystem {
     });
   }
 
-  // 通用 spark 图像入口；电力等短生命周期 VFX 可直接复用。
   spawnSpark(key, x, y, options = {}) {
     return this.spawnImage(key, x, y, options);
   }
